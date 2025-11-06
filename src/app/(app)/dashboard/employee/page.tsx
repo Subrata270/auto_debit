@@ -5,9 +5,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { format, formatDistanceToNow } from "date-fns";
-import { AlertTriangle, FileText, Bell } from "lucide-react";
+import { AlertTriangle, FileText, Bell, PlusCircle } from "lucide-react";
 import RenewRequestDialog from "./renew-request-dialog";
 import { Button } from "@/components/ui/button";
+import NewRequestDialog from "./new-request-dialog";
+import { useState } from "react";
 
 const StatusBadge = ({ status }: { status: string }) => {
     const variant: "default" | "secondary" | "destructive" | "outline" =
@@ -26,6 +28,7 @@ const StatusBadge = ({ status }: { status: string }) => {
 
 export default function DepartmentPOCDashboardPage() {
     const { currentUser, subscriptions } = useAppStore();
+    const [isNewRequestOpen, setIsNewRequestOpen] = useState(false);
 
     if (!currentUser) return null;
 
@@ -35,9 +38,17 @@ export default function DepartmentPOCDashboardPage() {
 
     return (
         <div className="space-y-8">
-            <header>
-                <h1 className="text-3xl font-bold text-slate-800">Welcome to the Department of POC Dashboard!</h1>
-                <p className="text-slate-500">Manage your department's active subscriptions and renewal alerts efficiently.</p>
+            <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <div>
+                    <h1 className="text-3xl font-bold text-slate-800">Welcome to the Department of POC Dashboard!</h1>
+                    <p className="text-slate-500">Manage your department's active subscriptions and renewal alerts efficiently.</p>
+                </div>
+                 <div className="flex-shrink-0">
+                    <Button onClick={() => setIsNewRequestOpen(true)} className="bg-gradient-to-r from-primary to-blue-500 text-white transition-transform duration-300 hover:scale-105 hover:shadow-lg w-full md:w-auto">
+                        <PlusCircle className="mr-2 h-4 w-4"/> Request New Subscription
+                    </Button>
+                    <NewRequestDialog open={isNewRequestOpen} onOpenChange={setIsNewRequestOpen} />
+                </div>
             </header>
 
             {renewalAlerts.length > 0 && (
