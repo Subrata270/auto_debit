@@ -4,7 +4,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useAppStore } from '@/store/app-store';
-import { toolOptions } from '@/lib/types';
+import { departmentOptions, toolOptions } from '@/lib/types';
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -30,6 +30,8 @@ import CustomSelect from './custom-select';
 const formSchema = z.object({
   toolName: z.string().min(1, 'Please select a tool.'),
   toolNameCustom: z.string().optional(),
+  department: z.string().min(1, 'Please select a department.'),
+  departmentCustom: z.string().optional(),
   duration: z.coerce.number().min(1, 'Duration must be at least 1 month.'),
   cost: z.coerce.number().min(0, 'Cost cannot be negative.'),
   purpose: z.string().min(10, 'Purpose must be at least 10 characters.'),
@@ -49,6 +51,8 @@ export default function NewRequestDialog({ open, onOpenChange }: NewRequestDialo
     defaultValues: {
       toolName: '',
       toolNameCustom: '',
+      department: currentUser?.department || '',
+      departmentCustom: '',
       duration: 12,
       cost: 0,
       purpose: '',
@@ -62,20 +66,28 @@ export default function NewRequestDialog({ open, onOpenChange }: NewRequestDialo
       duration: values.duration,
       cost: values.cost,
       purpose: values.purpose,
-      department: currentUser.department,
+      department: values.departmentCustom || values.department,
       requestedBy: currentUser.id,
     });
     toast({
         title: "Request Submitted!",
         description: `Your request for ${values.toolNameCustom || values.toolName} is now pending approval.`,
     })
-    form.reset();
+    form.reset({
+      toolName: '',
+      toolNameCustom: '',
+      department: currentUser?.department || '',
+      departmentCustom: '',
+      duration: 12,
+      cost: 0,
+      purpose: '',
+    });
     onOpenChange(false);
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>New Subscription Request</DialogTitle>
           <DialogDescription>
@@ -90,6 +102,13 @@ export default function NewRequestDialog({ open, onOpenChange }: NewRequestDialo
               label="Tool Name"
               placeholder="Select a tool"
               options={toolOptions}
+            />
+             <CustomSelect
+              form={form}
+              name="department"
+              label="Department"
+              placeholder="Select a department"
+              options={departmentOptions}
             />
              <div className="grid grid-cols-2 gap-4">
                 <FormField

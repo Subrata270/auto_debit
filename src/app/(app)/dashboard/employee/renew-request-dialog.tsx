@@ -30,6 +30,7 @@ import { useState } from 'react';
 
 const formSchema = z.object({
   renewalDuration: z.coerce.number().min(1, 'Duration must be at least 1 month.'),
+  renewalDurationCustom: z.string().optional(),
   updatedCost: z.coerce.number().min(0, 'Cost cannot be negative.'),
   remarks: z.string().optional(),
 });
@@ -48,13 +49,15 @@ export default function RenewRequestDialog({ subscription, trigger }: RenewReque
     resolver: zodResolver(formSchema),
     defaultValues: {
       renewalDuration: subscription.duration,
+      renewalDurationCustom: '',
       updatedCost: subscription.cost,
       remarks: '',
     },
   });
 
   const onSubmit = (values: z.infer<typeof formSchema>) => {
-    renewSubscription(subscription.id, values.renewalDuration, values.updatedCost, values.remarks || '');
+    const duration = values.renewalDurationCustom ? parseInt(values.renewalDurationCustom, 10) : values.renewalDuration;
+    renewSubscription(subscription.id, duration, values.updatedCost, values.remarks || '');
     toast({
         title: "Renewal Request Submitted!",
         description: `Your renewal request for ${subscription.toolName} is pending approval.`,
@@ -66,7 +69,7 @@ export default function RenewRequestDialog({ subscription, trigger }: RenewReque
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>{trigger}</DialogTrigger>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Renew Existing Subscription</DialogTitle>
           <DialogDescription>
@@ -81,7 +84,7 @@ export default function RenewRequestDialog({ subscription, trigger }: RenewReque
                     name="renewalDuration"
                     render={({ field }) => (
                         <FormItem>
-                        <FormLabel>Renewal Duration</FormLabel>
+                        <FormLabel>Renewal Duration (months)</FormLabel>
                         <FormControl>
                             <Input type="number" {...field} />
                         </FormControl>
@@ -103,6 +106,19 @@ export default function RenewRequestDialog({ subscription, trigger }: RenewReque
                     )}
                 />
             </div>
+             <FormField
+                control={form.control}
+                name="renewalDurationCustom"
+                render={({ field }) => (
+                    <FormItem className="mt-2">
+                    <FormLabel className="text-xs text-muted-foreground">Or enter custom duration</FormLabel>
+                    <FormControl>
+                        <Input placeholder="Custom duration (months)" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                    </FormItem>
+                )}
+            />
             <FormField
               control={form.control}
               name="remarks"

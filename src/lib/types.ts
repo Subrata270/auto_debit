@@ -42,3 +42,5 @@ export interface AppNotification {
 }
 
 export const toolOptions = ['ChatGPT', 'Canva', 'Figma', 'Notion', 'Zoom', 'Adobe Creative Cloud', 'Slack', 'Microsoft 365'];
+
+export const departmentOptions = ['Marketing', 'Engineering', 'Finance', 'IT', 'HR', 'Sales'];
