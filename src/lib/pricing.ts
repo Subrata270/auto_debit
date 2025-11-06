@@ -7,8 +7,8 @@ export const vendorToolMapping: { [key: string]: string[] } = {
   "Adobe": ["Adobe Creative Cloud", "Adobe Express", "Adobe Acrobat Pro"],
   "Atlassian": ["Jira", "Confluence", "Trello"],
   "Figma": ["Figma", "FigJam"],
-  "Canva": ["Canva Pro", "Canva for Teams"],
-  "Zoom": ["Zoom Meetings", "Zoom Webinar"],
+  "Canva Inc.": ["Canva Pro", "Canva for Teams"],
+  "Zoom Inc.": ["Zoom Meetings", "Zoom Webinar"],
   "Slack": ["Slack Pro", "Slack Business+"],
   "Notion": ["Notion Plus", "Notion AI"],
   "OpenAI": ["ChatGPT Plus", "ChatGPT Team"],
@@ -28,5 +28,3 @@ export const pricingRules: { [key: string]: number } = {
   "Notion AI": 10,
   "ChatGPT Plus": 20,
 };
-
-    

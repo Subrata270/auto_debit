@@ -46,8 +46,8 @@ const formSchema = z.object({
   currency: z.enum(['USD', 'INR']),
   startDate: z.date({ required_error: "A start date is required."}),
   endDate: z.date({ required_error: "An end date is required."}),
-  poc: z.string().min(1, 'Person of contact is required.'),
-  purpose: z.string().min(20, 'Purpose must be at least 20 characters.'),
+  purpose: z.string().min(1, "A brief purpose is required."),
+  justification: z.string().min(20, 'Justification must be at least 20 characters.'),
   department: z.string().min(1, 'Please select a department.'),
   departmentCustom: z.string().optional(),
 });
@@ -60,7 +60,7 @@ interface NewRequestDialogProps {
 export default function NewRequestDialog({ open, onOpenChange }: NewRequestDialogProps) {
   const { currentUser, addSubscriptionRequest } = useAppStore();
   const { toast } = useToast();
-  const [inrValue, setInrValue] = useState('0.00');
+  const [inrValue, setInrValue] = useState('₹0.00');
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -71,8 +71,8 @@ export default function NewRequestDialog({ open, onOpenChange }: NewRequestDialo
       frequency: 'Monthly',
       amount: 0,
       currency: 'USD',
-      poc: currentUser?.email || '',
       purpose: '',
+      justification: '',
       department: currentUser?.department || '',
       departmentCustom: '',
     },
@@ -84,52 +84,69 @@ export default function NewRequestDialog({ open, onOpenChange }: NewRequestDialo
   const toolName = watch('toolName');
   const frequency = watch('frequency');
   const amount = watch('amount');
-  const currency = watch('currency');
   const startDate = watch('startDate');
 
   const availableTools = useMemo(() => {
-    return vendorToolMapping[vendorName] || [];
+    return vendorToolMapping[vendorName as keyof typeof vendorToolMapping] || [];
   }, [vendorName]);
+  
+  const knownVendors = useMemo(() => Object.keys(vendorToolMapping), []);
 
   // Auto-populate amount based on vendor, tool, and frequency
   useEffect(() => {
-    if (vendorName && toolName && frequency) {
-      const toolPricing = pricingRules[toolName];
+    if (vendorName && toolName && frequency && toolName !== 'add-custom') {
+      const toolPricing = pricingRules[toolName as keyof typeof pricingRules];
       if (toolPricing) {
         const multipliers = { Monthly: 1, Quarterly: 3, Yearly: 12, 'One-time': 1 };
         const newAmount = toolPricing * multipliers[frequency];
         setValue('amount', newAmount);
         trigger('amount');
       } else {
-        setValue('amount', 0); // Default to 0 if no pricing rule exists (e.g., custom tool)
+        setValue('amount', 0); // Default to 0 if no pricing rule exists
       }
     }
   }, [vendorName, toolName, frequency, setValue, trigger]);
 
   // Update INR value when amount or currency changes
   useEffect(() => {
-    const cost = currency === 'USD' ? amount * USD_TO_INR_RATE : amount;
-    setInrValue(cost.toFixed(2));
-  }, [amount, currency]);
+    const costInUSD = getValues('currency') === 'INR' ? amount / USD_TO_INR_RATE : amount;
+    const costInINR = costInUSD * USD_TO_INR_RATE;
+
+    const formattedINR = new Intl.NumberFormat('en-IN', {
+        style: 'currency',
+        currency: 'INR',
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+    }).format(costInINR);
+
+    setInrValue(formattedINR);
+  }, [amount, getValues('currency')]);
 
   // Update End Date when Start Date or Frequency changes
   useEffect(() => {
     if (isValid(startDate) && frequency) {
       const multipliers = { Monthly: 1, Quarterly: 3, Yearly: 12, 'One-time': 1 };
       const durationInMonths = multipliers[frequency];
-      const newEndDate = addMonths(startDate, durationInMonths);
-      setValue('endDate', newEndDate);
+      if (durationInMonths > 0) {
+        const newEndDate = addMonths(startDate, durationInMonths);
+        setValue('endDate', newEndDate);
+      }
     }
   }, [startDate, frequency, setValue]);
   
   const calculatedDuration = useMemo(() => {
-    if (isValid(getValues('startDate')) && isValid(getValues('endDate'))) {
-      const months = differenceInCalendarMonths(getValues('endDate'), getValues('startDate'));
-      if (months === 0) return "1 month (One-time)";
-      if (months === 1) return "1 month";
-      if (months === 3) return "3 months";
-      if (months === 12) return "12 months";
-      return `${months} months`;
+    const start = getValues('startDate');
+    const end = getValues('endDate');
+    if (isValid(start) && isValid(end)) {
+        let months = differenceInCalendarMonths(end, start);
+        // Add 1 if the end date is in a later month but not a full month away
+        if (end.getDate() > start.getDate() && months === 0) months = 1;
+        if (months <= 0) months = 1;
+
+        if (months === 1) return "1 month";
+        if (months === 3) return "3 months";
+        if (months === 12) return "12 months";
+        return `${months} months`;
     }
     return '';
   }, [watch('startDate'), watch('endDate')]);
@@ -139,17 +156,19 @@ export default function NewRequestDialog({ open, onOpenChange }: NewRequestDialo
     if (!currentUser) return;
     
     const costInUSD = values.currency === 'INR' ? values.amount / USD_TO_INR_RATE : values.amount;
-    const finalToolName = values.toolName === 'custom' ? values.toolNameCustom : values.toolName;
+    const finalToolName = values.toolName === 'add-custom' ? values.toolNameCustom : values.toolName;
     const finalDepartment = getValues('department') === 'add-custom' ? getValues('departmentCustom') : getValues('department');
+    const finalVendorName = values.vendorName;
 
     addSubscriptionRequest({
       toolName: finalToolName!,
-      duration: 1, // This can be derived from start/end date if needed
+      vendorName: finalVendorName!,
+      duration: differenceInCalendarMonths(values.endDate, values.startDate) || 1, 
       cost: costInUSD,
       purpose: values.purpose,
       department: finalDepartment!,
       requestedBy: currentUser.id,
-      vendorName: values.vendorName,
+      remarks: values.justification,
     });
     toast({
         title: "Request Submitted!",
@@ -183,8 +202,11 @@ export default function NewRequestDialog({ open, onOpenChange }: NewRequestDialo
                             <FormItem>
                                 <FormLabel>Vendor Name</FormLabel>
                                 <FormControl>
-                                    <Input placeholder="e.g., Adobe Inc." {...field} />
+                                    <Input placeholder="e.g., Adobe Inc." {...field} list="vendor-suggestions" />
                                 </FormControl>
+                                <datalist id="vendor-suggestions">
+                                    {knownVendors.map(v => <option key={v} value={v} />)}
+                                </datalist>
                                 <FormMessage />
                             </FormItem>
                         )}
@@ -262,14 +284,10 @@ export default function NewRequestDialog({ open, onOpenChange }: NewRequestDialo
                         />
                     </div>
                     
-                    <FormItem>
-                        <FormLabel>Equivalent In</FormLabel>
-                        <div className="relative">
-                            <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-muted-foreground">
-                                {getValues('currency') === 'USD' ? '₹' : '$'}
-                            </span>
-                            <Input readOnly value={getValues('currency') === 'USD' ? inrValue : (amount / USD_TO_INR_RATE).toFixed(2)} className="pl-7 bg-muted" />
-                        </div>
+                    <FormItem className="md:col-span-2">
+                        <FormLabel>Equivalent In INR</FormLabel>
+                        <Input readOnly value={inrValue} className="pl-3 bg-muted font-semibold" />
+                        <p className="text-xs text-muted-foreground pt-1">Rate: 1 USD = {USD_TO_INR_RATE} INR. Auto-calculated.</p>
                     </FormItem>
                     
                     <div className='md:col-span-2 grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-6 items-end'>
@@ -342,12 +360,12 @@ export default function NewRequestDialog({ open, onOpenChange }: NewRequestDialo
 
                     <FormField
                         control={form.control}
-                        name="poc"
+                        name="purpose"
                         render={({ field }) => (
                             <FormItem>
-                                <FormLabel>POC (Person of Contact)</FormLabel>
+                                <FormLabel>Purpose</FormLabel>
                                 <FormControl>
-                                    <Input placeholder="e.g., poc@example.com" {...field} />
+                                    <Input placeholder="e.g., For marketing campaign assets" {...field} />
                                 </FormControl>
                                 <FormMessage />
                             </FormItem>
@@ -359,12 +377,12 @@ export default function NewRequestDialog({ open, onOpenChange }: NewRequestDialo
                 <div className="col-span-1 md:col-span-2">
                     <FormField
                     control={form.control}
-                    name="purpose"
+                    name="justification"
                     render={({ field }) => (
                         <FormItem>
-                        <FormLabel>Purpose & Justification</FormLabel>
+                        <FormLabel>Justification — Explain why this subscription is needed and its benefit.</FormLabel>
                         <FormControl>
-                            <Textarea rows={4} placeholder="Explain why this subscription is needed and how it supports your department's goals..." {...field} />
+                            <Textarea rows={4} placeholder="e.g. This tool will help the design team improve their workflow efficiency by 20%..." {...field} />
                         </FormControl>
                         <FormMessage />
                         </FormItem>
@@ -380,7 +398,7 @@ export default function NewRequestDialog({ open, onOpenChange }: NewRequestDialo
                                     <div className="flex flex-col items-center justify-center pt-5 pb-6">
                                         <Upload className="w-8 h-8 mb-4 text-muted-foreground" />
                                         <p className="mb-2 text-sm text-muted-foreground"><span className="font-semibold">Click to upload</span> or drag and drop</p>
-                                        <p className="text-xs text-muted-foreground">PDF, PNG, JPG or GIF (MAX. 800x400px)</p>
+                                        <p className="text-xs text-muted-foreground">PDF, PNG, JPG or GIF</p>
                                     </div>
                                     <Input id="file-upload" type="file" className="hidden" />
                                 </label>
@@ -401,5 +419,3 @@ export default function NewRequestDialog({ open, onOpenChange }: NewRequestDialo
     </Dialog>
   );
 }
-
-    
