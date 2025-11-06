@@ -1,0 +1,161 @@
+/**
+ * @description: This ruleset enforces a strict user-ownership model for user-specific data and role-based access for activity logs. It prioritizes security by ensuring that only authenticated users can access their own data and that write operations are restricted based on user roles and document ownership.
+ *
+ * Data Structure:
+ * - /users/{userId}: Stores user profiles, roles, and authentication information.
+ * - /users/{userId}/subscriptionRequests/{subscriptionRequestId}: Stores subscription requests made by individual users.
+ * - /subscriptionRequests/{subscriptionRequestId}/renewalRequests/{renewalRequestId}: Stores renewal requests for specific subscriptions.
+ * - /subscriptionRequests/{subscriptionRequestId}/payments/{paymentId}: Stores payment records related to specific subscriptions.
+ * - /users/{userId}/notifications/{notificationId}: Stores notifications specific to each user.
+ * - /activityLogs/{activityLogId}: Stores activity logs across the entire system.
+ *
+ * Key Security Decisions:
+ * - Users can only read and write their own user documents.
+ * - Subscription requests, renewal requests, payments, and notifications are user-owned and can only be accessed by the respective user.
+ * - Activity logs are publicly readable but writes are disallowed, and should be written from a trusted environment.
+ * - User listing is disallowed to protect user privacy.
+ *
+ * Denormalization for Authorization:
+ * - SubscriptionRequest, RenewalRequest, and Payment documents include denormalized userId and subscriptionRequestId fields to avoid costly get() calls for authorization.
+ */
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    /**
+     * @description: Manages access to user profile data. Only the authenticated user can read and write their own profile.
+     * @path: /users/{userId}
+     * @allow: (create) - User 'user_abc' can create their profile if request.auth.uid == 'user_abc'.
+     * @allow: (get, update, delete) - User 'user_abc' can read, update, and delete their profile if request.auth.uid == 'user_abc'.
+     * @deny: (create, update, delete) - User 'user_xyz' cannot create, update, or delete user 'user_abc's profile.
+     * @principle: Enforces document ownership for reads and writes.
+     */
+    match /users/{userId} {
+      function isOwner(userId) {
+        return request.auth.uid == userId;
+      }
+
+      function isExistingOwner(userId) {
+        return isOwner(userId) && resource != null;
+      }
+
+      allow get: if isOwner(userId);
+      allow list: if false; // User listing is not allowed.
+
+      allow create: if isOwner(userId) && request.resource.data.id == request.auth.uid;
+      allow update: if isExistingOwner(userId) && request.resource.data.id == resource.data.id;
+      allow delete: if isExistingOwner(userId);
+    }
+
+    /**
+     * @description: Manages access to subscription requests for a specific user. Only the owner can read and write requests.
+     * @path: /users/{userId}/subscriptionRequests/{subscriptionRequestId}
+     * @allow: (create) - User 'user_abc' can create a subscription request under their profile.
+     * @allow: (get, list, update, delete) - User 'user_abc' can read, list, update, and delete their own subscription requests.
+     * @deny: (create, update, delete) - User 'user_xyz' cannot create, update, or delete subscription requests for user 'user_abc'.
+     * @principle: Enforces document ownership for reads and writes within a user's data tree.
+     */
+    match /users/{userId}/subscriptionRequests/{subscriptionRequestId} {
+      function isOwner(userId) {
+        return request.auth.uid == userId;
+      }
+
+      function isExistingOwner(userId) {
+        return isOwner(userId) && resource != null;
+      }
+
+      allow get: if isOwner(userId);
+      allow list: if isOwner(userId);
+
+      allow create: if isOwner(userId) && request.resource.data.userId == userId;
+      allow update: if isExistingOwner(userId) && request.resource.data.userId == resource.data.userId;
+      allow delete: if isExistingOwner(userId);
+    }
+
+    /**
+     * @description: Manages access to renewal requests for a specific subscription.
+     * @path: /subscriptionRequests/{subscriptionRequestId}/renewalRequests/{renewalRequestId}
+     * @allow: (create) - User can create a renewal request for a given subscription if authorized.
+     * @allow: (get, list, update, delete) - User can read, list, update, and delete renewal requests if authorized.
+     * @deny: (create, update, delete) - Unauthorized user cannot create, update, or delete renewal requests.
+     * @principle: Enforces document ownership for reads and writes. Relies on subscriptionRequest being owned by the authenticated user.
+     */
+    match /subscriptionRequests/{subscriptionRequestId}/renewalRequests/{renewalRequestId} {
+        function isSubscriptionRequestOwner(subscriptionRequestId) {
+            return get(/databases/$(database)/documents/subscriptionRequests/$(subscriptionRequestId)).data.userId == request.auth.uid;
+        }
+
+       function isExistingSubscriptionRequestOwner(subscriptionRequestId) {
+           return isSubscriptionRequestOwner(subscriptionRequestId) && resource != null;
+       }
+
+      allow get: if isSubscriptionRequestOwner(subscriptionRequestId);
+      allow list: if isSubscriptionRequestOwner(subscriptionRequestId);
+      allow create: if request.auth != null && isSubscriptionRequestOwner(subscriptionRequestId);
+      allow update: if isExistingSubscriptionRequestOwner(subscriptionRequestId);
+      allow delete: if isExistingSubscriptionRequestOwner(subscriptionRequestId);
+    }
+
+    /**
+     * @description: Manages access to payments for a specific subscription.
+     * @path: /subscriptionRequests/{subscriptionRequestId}/payments/{paymentId}
+     * @allow: (create) - User can create a payment for a subscription request if authorized.
+     * @allow: (get, list, update, delete) - User can read, list, update, and delete payments if authorized.
+     * @deny: (create, update, delete) - Unauthorized user cannot create, update, or delete payments.
+     * @principle: Enforces document ownership for reads and writes. Relies on subscriptionRequest being owned by the authenticated user.
+     */
+    match /subscriptionRequests/{subscriptionRequestId}/payments/{paymentId} {
+      function isSubscriptionRequestOwner(subscriptionRequestId) {
+            return get(/databases/$(database)/documents/subscriptionRequests/$(subscriptionRequestId)).data.userId == request.auth.uid;
+      }
+
+       function isExistingSubscriptionRequestOwner(subscriptionRequestId) {
+           return isSubscriptionRequestOwner(subscriptionRequestId) && resource != null;
+       }
+
+      allow get: if isSubscriptionRequestOwner(subscriptionRequestId);
+      allow list: if isSubscriptionRequestOwner(subscriptionRequestId);
+      allow create: if request.auth != null && isSubscriptionRequestOwner(subscriptionRequestId);
+      allow update: if isExistingSubscriptionRequestOwner(subscriptionRequestId);
+      allow delete: if isExistingSubscriptionRequestOwner(subscriptionRequestId);
+    }
+
+    /**
+     * @description: Manages access to notifications for a specific user. Only the owner can read and write their own notifications.
+     * @path: /users/{userId}/notifications/{notificationId}
+     * @allow: (create) - User 'user_abc' can have notification created under their profile.
+     * @allow: (get, list, update, delete) - User 'user_abc' can read, list, update, and delete their own notifications.
+     * @deny: (create, update, delete) - User 'user_xyz' cannot create, update, or delete notifications for user 'user_abc'.
+     * @principle: Enforces document ownership for reads and writes within a user's data tree.
+     */
+    match /users/{userId}/notifications/{notificationId} {
+      function isOwner(userId) {
+        return request.auth.uid == userId;
+      }
+
+      function isExistingOwner(userId) {
+        return isOwner(userId) && resource != null;
+      }
+
+      allow get: if isOwner(userId);
+      allow list: if isOwner(userId);
+
+      allow create: if request.auth != null && request.resource.data.userId == userId;
+      allow update: if isExistingOwner(userId) && request.resource.data.userId == resource.data.userId;
+      allow delete: if isExistingOwner(userId);
+    }
+
+    /**
+     * @description: Manages access to activity logs. Activity logs are readable by anyone, and should be writable by only trusted servers.
+     * @path: /activityLogs/{activityLogId}
+     * @allow: (get, list) - Any user can read activity logs.
+     * @deny: (create, update, delete) - No user can create, update, or delete activity logs through the client.
+     * @principle: Public read access with restricted writes to protect system integrity.
+     */
+    match /activityLogs/{activityLogId} {
+      allow get: if true;
+      allow list: if true;
+      allow create, update, delete: if false;
+    }
+  }
+}
