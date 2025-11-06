@@ -1,3 +1,10 @@
 {
-  "placeholderImages": []
+  "placeholderImages": [
+    {
+      "id": "logo",
+      "description": "AutoTrack Pro application logo",
+      "imageUrl": "https://images.unsplash.com/photo-1747862712521-e4a37b12a039?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw4fHxhYnN0cmFjdCUyMGxvZ298ZW58MHx8fHwxNzYyNDAxNzk1fDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "abstract logo"
+    }
+  ]
 }
