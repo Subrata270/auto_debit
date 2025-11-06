@@ -1,9 +1,9 @@
+
 "use client"
 
 import { useAppStore } from "@/store/app-store";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
 import { format, formatDistanceToNow } from "date-fns";
 import { AlertCircle, CheckCircle, Clock, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -12,17 +12,6 @@ import { Subscription } from "@/lib/types";
 import { useState } from "react";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-
-const StatusBadge = ({ status }: { status: string }) => {
-    const colorClass = 
-        status === 'Active' ? 'bg-green-500/20 text-green-700 border-green-400' :
-        status === 'Pending' ? 'bg-amber-500/20 text-amber-700 border-amber-400' :
-        status === 'Approved' ? 'bg-sky-500/20 text-sky-700 border-sky-400' :
-        status === 'Declined' ? 'bg-red-500/20 text-red-700 border-red-400' :
-        'bg-gray-500/20 text-gray-700 border-gray-400';
-
-    return <Badge variant="outline" className={`capitalize ${colorClass}`}>{status.toLowerCase()}</Badge>;
-};
 
 const ApprovalActions = ({ subscription }: { subscription: Subscription }) => {
     const { updateSubscriptionStatus } = useAppStore();
@@ -40,7 +29,7 @@ const ApprovalActions = ({ subscription }: { subscription: Subscription }) => {
     }
 
     return (
-        <div className="flex gap-2">
+        <div className="flex gap-2 justify-end">
             <Button size="sm" variant="outline" className="text-green-600 border-green-600 hover:bg-green-50 hover:text-green-700" onClick={handleApprove}>
                 <CheckCircle className="mr-2 h-4 w-4"/>Approve
             </Button>
@@ -81,23 +70,26 @@ export default function HODDashboardPage() {
     const getUserName = (userId: string) => users.find(u => u.id === userId)?.name || 'Unknown User';
 
     return (
-        <div className="space-y-8">
-            <header>
-                <h1 className="text-3xl font-bold">Welcome, {currentUser.name}</h1>
-                <p className="text-muted-foreground">Manage your department's subscription requests.</p>
+        <div className="space-y-6 md:space-y-8 p-4 md:p-6 lg:p-8">
+            <header className="text-center md:text-left">
+                <h1 className="text-2xl md:text-3xl font-bold">Welcome, {currentUser.name}</h1>
+                <p className="text-muted-foreground">Manage your department’s subscription requests efficiently.</p>
             </header>
 
             {expiringSoon.length > 0 && (
-                 <Card className="bg-amber-50 border-amber-200">
+                 <Card className="bg-amber-50/50 border-amber-200/80 rounded-2xl shadow-sm hover:shadow-md transition-shadow">
                     <CardHeader className="flex flex-row items-center gap-4">
                         <AlertCircle className="h-6 w-6 text-amber-600"/>
                         <CardTitle className="text-amber-800">Expiring Soon</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <ul className="space-y-2">
+                        <ul className="space-y-3">
                         {expiringSoon.map(sub => (
-                            <li key={sub.id} className="text-sm">
-                                Your department’s subscription for <strong>{sub.toolName}</strong> is expiring {formatDistanceToNow(new Date(sub.expiryDate!), { addSuffix: true })}.
+                            <li key={sub.id} className="flex flex-col sm:flex-row justify-between items-start sm:items-center text-sm">
+                                <span className="mb-2 sm:mb-0">
+                                    Your department’s subscription for <strong>{sub.toolName}</strong> is expiring {formatDistanceToNow(new Date(sub.expiryDate!), { addSuffix: true })}.
+                                </span>
+                                <Button size="sm" variant="outline" className="border-amber-400 text-amber-700 hover:bg-amber-100">Renew Now</Button>
                             </li>
                         ))}
                         </ul>
@@ -105,36 +97,54 @@ export default function HODDashboardPage() {
                 </Card>
             )}
 
-            <Card>
+            <Card className="rounded-2xl shadow-lg">
                 <CardHeader>
-                    <CardTitle className="flex items-center gap-2"><Clock /> Pending Approvals</CardTitle>
+                    <CardTitle className="flex items-center gap-2 text-slate-800"><Clock /> Pending Approvals</CardTitle>
                     <CardDescription>Review and act on new subscription requests.</CardDescription>
                 </CardHeader>
                 <CardContent>
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>Tool</TableHead>
-                                <TableHead>Requested By</TableHead>
-                                <TableHead>Cost</TableHead>
-                                <TableHead>Requested On</TableHead>
-                                <TableHead className="text-right">Actions</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {pendingApprovals.length > 0 ? pendingApprovals.map(sub => (
-                                <TableRow key={sub.id}>
-                                    <TableCell className="font-medium">{sub.toolName}</TableCell>
-                                    <TableCell>{getUserName(sub.requestedBy)}</TableCell>
-                                    <TableCell>${sub.cost.toFixed(2)}</TableCell>
-                                    <TableCell>{format(new Date(sub.requestDate), "PP")}</TableCell>
-                                    <TableCell className="text-right">
-                                        <ApprovalActions subscription={sub} />
-                                    </TableCell>
+                    {/* For Mobile - stacked cards */}
+                    <div className="md:hidden space-y-4">
+                        {pendingApprovals.length > 0 ? pendingApprovals.map(sub => (
+                            <div key={sub.id} className="border rounded-lg p-4 space-y-3 bg-background shadow-sm">
+                                <div className="font-bold text-lg">{sub.toolName}</div>
+                                <div className="text-sm text-muted-foreground">
+                                    <p><strong>Requested By:</strong> {getUserName(sub.requestedBy)}</p>
+                                    <p><strong>Cost:</strong> ${sub.cost.toFixed(2)}</p>
+                                    <p><strong>Date:</strong> {format(new Date(sub.requestDate), "PP")}</p>
+                                </div>
+                                <ApprovalActions subscription={sub} />
+                            </div>
+                        )) : <div className="text-center text-muted-foreground py-8">No pending approvals.</div>}
+                    </div>
+                    
+                    {/* For Desktop - table */}
+                    <div className="hidden md:block">
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>Tool</TableHead>
+                                    <TableHead>Requested By</TableHead>
+                                    <TableHead>Cost</TableHead>
+                                    <TableHead>Requested On</TableHead>
+                                    <TableHead className="text-right">Actions</TableHead>
                                 </TableRow>
-                            )) : <TableRow><TableCell colSpan={5} className="text-center">No pending approvals.</TableCell></TableRow>}
-                        </TableBody>
-                    </Table>
+                            </TableHeader>
+                            <TableBody>
+                                {pendingApprovals.length > 0 ? pendingApprovals.map(sub => (
+                                    <TableRow key={sub.id}>
+                                        <TableCell className="font-medium">{sub.toolName}</TableCell>
+                                        <TableCell>{getUserName(sub.requestedBy)}</TableCell>
+                                        <TableCell>${sub.cost.toFixed(2)}</TableCell>
+                                        <TableCell>{format(new Date(sub.requestDate), "PP")}</TableCell>
+                                        <TableCell className="text-right">
+                                            <ApprovalActions subscription={sub} />
+                                        </TableCell>
+                                    </TableRow>
+                                )) : <TableRow><TableCell colSpan={5} className="text-center h-24">No pending approvals.</TableCell></TableRow>}
+                            </TableBody>
+                        </Table>
+                    </div>
                 </CardContent>
             </Card>
         </div>
