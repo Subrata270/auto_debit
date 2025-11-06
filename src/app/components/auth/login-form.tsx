@@ -59,7 +59,7 @@ export default function LoginForm({ role, title, subRoleOptions }: LoginFormProp
             title: "Login Successful",
             description: `Welcome back, ${user.name}!`,
             });
-            setTimeout(() => router.push(`/dashboard`), 1200);
+            setTimeout(() => router.push(`/dashboard/${user.role}`), 1200);
         }
       } catch (error: any) {
          toast({
@@ -81,7 +81,7 @@ export default function LoginForm({ role, title, subRoleOptions }: LoginFormProp
                 title: "Google Login Successful",
                 description: `Welcome back, ${user.name}!`,
             });
-            setTimeout(() => router.push(`/dashboard`), 1200);
+            setTimeout(() => router.push(`/dashboard/${user.role}`), 1200);
         }
        } catch (error: any) {
          toast({
