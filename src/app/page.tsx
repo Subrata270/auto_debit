@@ -1,3 +1,4 @@
+
 "use client"
 import Link from "next/link"
 import { ArrowRight, Briefcase, Building, ShieldCheck, User } from "lucide-react"
@@ -81,18 +82,18 @@ export default function Home() {
               },
             },
           }}
-          className="mt-12 grid grid-cols-1 gap-6 md:grid-cols-3"
+          className="mt-12 grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3"
         >
           {portals.map((portal) => (
-            <motion.div key={portal.name} variants={FADE_IN_ANIMATION_VARIANTS} className="md:col-span-1">
-              <Card className="h-full transform transition-transform duration-300 hover:-translate-y-2 hover:shadow-2xl">
+            <motion.div key={portal.name} variants={FADE_IN_ANIMATION_VARIANTS}>
+              <Card className="h-full flex flex-col transform transition-transform duration-300 hover:-translate-y-2 hover:shadow-2xl">
                 <CardHeader className="flex flex-row items-center gap-4">
                   {portal.icon}
                   <CardTitle className="text-xl">{portal.name}</CardTitle>
                 </CardHeader>
-                <CardContent>
-                  <p className="text-muted-foreground mb-4">{portal.description}</p>
-                  <Button asChild className="w-full group">
+                <CardContent className="flex flex-col flex-grow">
+                  <p className="text-muted-foreground mb-4 flex-grow">{portal.description}</p>
+                  <Button asChild className="w-full group mt-auto">
                     <Link href={portal.href}>
                       Login <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
                     </Link>
