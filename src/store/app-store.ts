@@ -74,12 +74,6 @@ export const useAppStore = create<AppState>()(
         const { auth } = initializeFirebase();
         const provider = new GoogleAuthProvider();
 
-        if (role === 'finance' && subrole) {
-            provider.setCustomParameters({
-              login_hint: `Logging in as Finance (${subrole.toUpperCase()})`
-            });
-        }
-
         try {
             const result = await signInWithPopup(auth, provider);
             const googleUser = result.user;

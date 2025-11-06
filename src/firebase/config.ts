@@ -1,6 +1,6 @@
 export const firebaseConfig = {
   "apiKey": "AIzaSyCBhtbiiVS5SsJn-N00gbM1oX625BjI3YM",
-  "authDomain": "autosubscription-6c04a.web.app",
+  "authDomain": "autosubscription-6c04a.firebaseapp.com",
   "projectId": "autosubscription-6c04a",
   "storageBucket": "autosubscription-6c04a.appspot.com",
   "messagingSenderId": "688217735729",
