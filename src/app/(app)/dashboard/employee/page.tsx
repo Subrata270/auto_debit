@@ -73,7 +73,7 @@ export default function DepartmentPOCDashboardPage() {
                                 {renewalAlerts.map(sub => (
                                     <li key={sub.id} className="flex justify-between items-center text-sm">
                                         <span>Your subscription for <strong>{sub.toolName}</strong> is expiring {formatDistanceToNow(new Date(sub.expiryDate!), { addSuffix: true })}.</span>
-                                        <RenewRequestDialog subscription={sub} trigger={<Button variant="outline" size="sm">Renew Now</Button>} />
+                                        <RenewRequestDialog subscription={sub} dialogTrigger={<Button variant="outline" size="sm">Renew Now</Button>} />
                                     </li>
                                 ))}
                                 </ul>
@@ -129,7 +129,7 @@ export default function DepartmentPOCDashboardPage() {
                                         <TableCell>{sub.expiryDate ? formatDistanceToNow(new Date(sub.expiryDate), { addSuffix: true }) : 'N/A'}</TableCell>
                                         <TableCell><StatusBadge status={sub.status} /></TableCell>
                                         <TableCell className="text-right">
-                                        <RenewRequestDialog subscription={sub} trigger={<Button variant="ghost" size="sm" className="text-primary hover:bg-primary/10">Renew</Button>} />
+                                        <RenewRequestDialog subscription={sub} dialogTrigger={<Button variant="ghost" size="sm" className="text-primary hover:bg-primary/10">Renew</Button>} />
                                         </TableCell>
                                     </TableRow>
                                 )) : <TableRow><TableCell colSpan={5} className="text-center">No active subscriptions found.</TableCell></TableRow>}
