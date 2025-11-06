@@ -35,7 +35,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             <div className="flex-1 flex flex-col">
               <Header />
               <main className="flex-1 overflow-y-auto bg-secondary/40">
-                  {children}
+                  <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
+                    {children}
+                  </div>
               </main>
             </div>
         </div>

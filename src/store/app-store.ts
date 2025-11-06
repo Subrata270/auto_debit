@@ -20,8 +20,8 @@ interface AppState {
   logout: () => void;
   addSubscriptionRequest: (request: Omit<Subscription, 'id' | 'status' | 'requestDate'>) => void;
   renewSubscription: (subscriptionId: string, renewalDuration: number, updatedCost: number, remarks: string) => void;
-  updateSubscriptionStatus: (subscriptionId: string, status: SubscriptionStatus, approverId?: string) => void;
-  markAsPaid: (subscriptionId: string, payerId: string) => void;
+  updateSubscriptionStatus: (subscriptionId: string, status: SubscriptionStatus, declineReason?: string) => void;
+  markAsPaid: (subscriptionId: string, payerId: string, paymentMode: string) => void;
   addNotification: (userId: string, message: string) => void;
   readNotification: (notificationId: string) => void;
 }
@@ -114,7 +114,11 @@ export const useAppStore = create<AppState>()(
 
       logout: async () => {
         const { auth } = initializeFirebase();
-        await auth.signOut();
+        try {
+            await auth.signOut();
+        } catch (error) {
+            console.error("Error signing out: ", error);
+        }
         set({ currentUser: null });
       },
       
@@ -149,8 +153,6 @@ export const useAppStore = create<AppState>()(
         const existingSub = get().subscriptions.find(s => s.id === subscriptionId);
         if(!existingSub) return;
         
-        // This simulates a renewal request workflow. In a real app, this might create a new request record.
-        // For the prototype, we'll create a new "pending" request based on the old one.
         const renewalRequest: Subscription = {
           ...existingSub,
           id: generateId(),
@@ -180,7 +182,7 @@ export const useAppStore = create<AppState>()(
       
       updateSubscriptionStatus: (subscriptionId, status, reason) => {
         const currentUser = get().currentUser;
-        if (!currentUser) return;
+        if (!currentUser || currentUser.role !== 'hod') return;
         
         set((state) => ({
           subscriptions: state.subscriptions.map((sub) => {
@@ -195,7 +197,7 @@ export const useAppStore = create<AppState>()(
               }
               if (status === 'Declined') {
                  if (requester) get().addNotification(requester.id, `Your request for ${sub.toolName} has been declined. Reason: ${reason}`);
-                return { ...sub, status, remarks: `Declined by HOD: ${reason}` };
+                return { ...sub, status, remarks: `Declined by HOD: ${reason}`, approvalDate: formatISO(new Date()), approvedBy: currentUser.id };
               }
               return { ...sub, status };
             }
@@ -204,7 +206,7 @@ export const useAppStore = create<AppState>()(
         }));
       },
 
-      markAsPaid: (subscriptionId, payerId) => {
+      markAsPaid: (subscriptionId, payerId, paymentMode) => {
         set((state) => ({
           subscriptions: state.subscriptions.map((sub) => {
             if (sub.id === subscriptionId) {
@@ -217,6 +219,7 @@ export const useAppStore = create<AppState>()(
                 paidBy: payerId,
                 paymentDate: formatISO(new Date()),
                 expiryDate: formatISO(add(new Date(), { months: sub.duration })),
+                remarks: `Paid via ${paymentMode}`
               };
             }
             return sub;
@@ -247,9 +250,7 @@ export const useAppStore = create<AppState>()(
     }),
     {
       name: 'autotrack-pro-storage',
-      storage: createJSONStorage(() => sessionStorage), // Use sessionStorage for this prototype
+      storage: createJSONStorage(() => sessionStorage),
     }
   )
 );
-
-    

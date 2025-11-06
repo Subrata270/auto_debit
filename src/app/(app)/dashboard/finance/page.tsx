@@ -5,13 +5,15 @@ import { useAppStore } from "@/store/app-store";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { format } from "date-fns";
-import { AlertTriangle, Check, History, Hourglass, Wallet } from "lucide-react";
+import { AlertTriangle, Check, CheckCircle, History, Hourglass, Wallet, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from "@/components/ui/dialog";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { useState } from "react";
 import { Subscription } from "@/lib/types";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { motion } from "framer-motion";
 
 const PaymentDialog = ({ subscription }: { subscription: Subscription }) => {
     const { currentUser, markAsPaid } = useAppStore();
@@ -19,7 +21,7 @@ const PaymentDialog = ({ subscription }: { subscription: Subscription }) => {
 
     const handlePayment = () => {
         if (!currentUser) return;
-        markAsPaid(subscription.id, currentUser.id);
+        markAsPaid(subscription.id, currentUser.id, paymentMode);
     }
 
     return (
@@ -66,6 +68,36 @@ const PaymentDialog = ({ subscription }: { subscription: Subscription }) => {
     );
 };
 
+const HistoryCard = ({ title, icon, data, bgColor }: { title: string, icon: React.ReactNode, data: Subscription[], bgColor: string }) => (
+    <Card className={`rounded-xl shadow-md ${bgColor}`}>
+        <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-slate-800">{icon}{title}</CardTitle>
+        </CardHeader>
+        <CardContent>
+            <ScrollArea className="h-72">
+                <Table>
+                    <TableHeader>
+                        <TableRow>
+                            <TableHead>Tool</TableHead>
+                            <TableHead>Amount</TableHead>
+                            <TableHead>Paid On</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {data.length > 0 ? data.map(sub => (
+                            <TableRow key={sub.id}>
+                                <TableCell className="font-medium">{sub.toolName}</TableCell>
+                                <TableCell>${sub.cost.toFixed(2)}</TableCell>
+                                <TableCell>{sub.paymentDate ? format(new Date(sub.paymentDate), "PP") : 'N/A'}</TableCell>
+                            </TableRow>
+                        )) : <TableRow><TableCell colSpan={3} className="text-center h-24">No history found.</TableCell></TableRow>}
+                    </TableBody>
+                </Table>
+            </ScrollArea>
+        </CardContent>
+    </Card>
+);
+
 export default function FinanceDashboardPage() {
     const { currentUser, subscriptions, users } = useAppStore();
 
@@ -78,19 +110,20 @@ export default function FinanceDashboardPage() {
     const upcomingPayments = subscriptions.filter(s => s.status === 'Active' && s.expiryDate && new Date(s.expiryDate) <= nextWeek && new Date(s.expiryDate) > now);
     const paymentHistory = subscriptions.filter(s => s.status === 'Active' || s.status === 'Expired');
     const monthlySpend = paymentHistory.reduce((sum, sub) => sum + sub.cost, 0);
-
     
+    const declinedHistory = subscriptions.filter(s => s.status === 'Declined');
+
     const getUserName = (userId: string) => users.find(u => u.id === userId)?.name || 'Unknown';
 
     return (
-        <div className="p-4 sm:p-6 lg:p-8 space-y-8">
-            <header className="text-center md:text-left">
-                <h1 className="text-2xl md:text-3xl font-bold">Welcome, Finance Team</h1>
+        <div className="space-y-6">
+            <header>
+                <h1 className="text-2xl font-bold">Welcome, Finance Team</h1>
                 <p className="text-muted-foreground mt-1">Manage your department’s subscriptions, approvals, and renewals efficiently.</p>
             </header>
             
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4 mt-6">
-                <Card className="bg-gradient-to-br from-blue-100 to-blue-200">
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="grid gap-6 md:grid-cols-2 lg:grid-cols-4 mt-6">
+                <Card className="bg-blue-50">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-sm font-medium">Pending Payments</CardTitle>
                         <Hourglass className="h-4 w-4 text-blue-800" />
@@ -100,7 +133,7 @@ export default function FinanceDashboardPage() {
                         <p className="text-xs text-muted-foreground">Requests awaiting processing.</p>
                     </CardContent>
                 </Card>
-                <Card className="bg-gradient-to-br from-amber-100 to-amber-200">
+                <Card className="bg-amber-50">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-sm font-medium">Renewals This Week</CardTitle>
                         <AlertTriangle className="h-4 w-4 text-amber-800" />
@@ -110,7 +143,7 @@ export default function FinanceDashboardPage() {
                         <p className="text-xs text-muted-foreground">Subscriptions due for renewal soon.</p>
                     </CardContent>
                 </Card>
-                <Card className="bg-gradient-to-br from-teal-100 to-teal-200">
+                <Card className="bg-teal-50">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-sm font-medium">Total Paid Subscriptions</CardTitle>
                         <History className="h-4 w-4 text-teal-800" />
@@ -120,7 +153,7 @@ export default function FinanceDashboardPage() {
                         <p className="text-xs text-muted-foreground">Total subscriptions processed.</p>
                     </CardContent>
                 </Card>
-                 <Card className="bg-gradient-to-br from-purple-100 to-purple-200">
+                 <Card className="bg-purple-50">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-sm font-medium">Monthly Spend</CardTitle>
                         <Wallet className="h-4 w-4 text-purple-800" />
@@ -130,60 +163,68 @@ export default function FinanceDashboardPage() {
                         <p className="text-xs text-muted-foreground">Total spend this month.</p>
                     </CardContent>
                 </Card>
-            </div>
+            </motion.div>
 
-            <Card className="rounded-2xl shadow-lg">
-                <CardHeader>
-                    <CardTitle>Pending Payments</CardTitle>
-                    <CardDescription>Subscriptions approved and ready for payment.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                    {/* For Mobile - stacked cards */}
-                    <div className="md:hidden space-y-4">
-                        {pendingPayments.length > 0 ? pendingPayments.map(sub => (
-                            <div key={sub.id} className="border rounded-lg p-4 space-y-3 bg-background shadow-sm">
-                                <div className="font-bold text-lg">{sub.toolName}</div>
-                                <div className="text-sm text-muted-foreground space-y-1">
-                                    <p><strong>Department:</strong> {sub.department}</p>
-                                    <p><strong>Cost:</strong> <span className="font-semibold text-foreground">${sub.cost.toFixed(2)}</span></p>
-                                    <p><strong>Approved By:</strong> {getUserName(sub.approvedBy!)}</p>
-                                </div>
-                                <div className="pt-2">
-                                    <PaymentDialog subscription={sub} />
-                                </div>
-                            </div>
-                        )) : <div className="text-center text-muted-foreground py-8">No pending payments.</div>}
-                    </div>
-
-                    {/* For Desktop - table */}
-                    <div className="hidden md:block">
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead>Tool</TableHead>
-                                    <TableHead>Department</TableHead>
-                                    <TableHead>Cost</TableHead>
-                                    <TableHead>Approved By</TableHead>
-                                    <TableHead className="text-right">Action</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {pendingPayments.length > 0 ? pendingPayments.map(sub => (
-                                    <TableRow key={sub.id}>
-                                        <TableCell className="font-medium">{sub.toolName}</TableCell>
-                                        <TableCell>{sub.department}</TableCell>
-                                        <TableCell>${sub.cost.toFixed(2)}</TableCell>
-                                        <TableCell>{getUserName(sub.approvedBy!)}</TableCell>
-                                        <TableCell className="text-right">
+             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+                <Card className="rounded-xl shadow-md">
+                    <CardHeader>
+                        <CardTitle>Pending Payments</CardTitle>
+                        <CardDescription>Subscriptions approved and ready for payment.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="md:hidden space-y-4">
+                            {pendingPayments.length > 0 ? pendingPayments.map(sub => (
+                                <div key={sub.id} className="border rounded-lg p-4 space-y-3 bg-background shadow-sm">
+                                    <div className="font-bold text-lg">{sub.toolName}</div>
+                                    <div className="text-sm text-muted-foreground space-y-1">
+                                        <p><strong>Department:</strong> {sub.department}</p>
+                                        <p><strong>Cost:</strong> <span className="font-semibold text-foreground">${sub.cost.toFixed(2)}</span></p>
+                                        <p><strong>Approved By:</strong> {getUserName(sub.approvedBy!)}</p>
+                                    </div>
+                                    <div className="pt-2">
                                         <PaymentDialog subscription={sub} />
-                                        </TableCell>
+                                    </div>
+                                </div>
+                            )) : <div className="text-center text-muted-foreground py-8">No pending payments.</div>}
+                        </div>
+
+                        <div className="hidden md:block">
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>Tool</TableHead>
+                                        <TableHead>Department</TableHead>
+                                        <TableHead>Cost</TableHead>
+                                        <TableHead>Approved By</TableHead>
+                                        <TableHead className="text-right">Action</TableHead>
                                     </TableRow>
-                                )) : <TableRow><TableCell colSpan={5} className="text-center h-24">No pending payments.</TableCell></TableRow>}
-                            </TableBody>
-                        </Table>
-                    </div>
-                </CardContent>
-            </Card>
+                                </TableHeader>
+                                <TableBody>
+                                    {pendingPayments.length > 0 ? pendingPayments.map(sub => (
+                                        <TableRow key={sub.id}>
+                                            <TableCell className="font-medium">{sub.toolName}</TableCell>
+                                            <TableCell>{sub.department}</TableCell>
+                                            <TableCell>${sub.cost.toFixed(2)}</TableCell>
+                                            <TableCell>{getUserName(sub.approvedBy!)}</TableCell>
+                                            <TableCell className="text-right">
+                                            <PaymentDialog subscription={sub} />
+                                            </TableCell>
+                                        </TableRow>
+                                    )) : <TableRow><TableCell colSpan={5} className="text-center h-24">No pending payments.</TableCell></TableRow>}
+                                </TableBody>
+                            </Table>
+                        </div>
+                    </CardContent>
+                </Card>
+             </motion.div>
+
+             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
+                <h2 className="text-xl font-bold text-slate-800 mt-8 mb-4">Subscription History</h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <HistoryCard title="Approved History" icon={<CheckCircle className="text-green-600"/>} data={paymentHistory} bgColor="bg-green-50/50" />
+                    <HistoryCard title="Declined History" icon={<XCircle className="text-red-600"/>} data={declinedHistory} bgColor="bg-red-50/50" />
+                </div>
+            </motion.div>
         </div>
     );
 }

@@ -12,6 +12,8 @@ import { Subscription } from "@/lib/types";
 import { useState } from "react";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { motion } from "framer-motion";
 
 const ApprovalActions = ({ subscription }: { subscription: Subscription }) => {
     const { updateSubscriptionStatus } = useAppStore();
@@ -58,6 +60,36 @@ const ApprovalActions = ({ subscription }: { subscription: Subscription }) => {
     );
 };
 
+const HistoryCard = ({ title, icon, data, bgColor }: { title: string, icon: React.ReactNode, data: Subscription[], bgColor: string }) => (
+    <Card className={`rounded-xl shadow-md ${bgColor}`}>
+        <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-slate-800">{icon}{title}</CardTitle>
+        </CardHeader>
+        <CardContent>
+            <ScrollArea className="h-72">
+                <Table>
+                    <TableHeader>
+                        <TableRow>
+                            <TableHead>Tool</TableHead>
+                            <TableHead>User</TableHead>
+                            <TableHead>Date</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {data.length > 0 ? data.map(sub => (
+                            <TableRow key={sub.id}>
+                                <TableCell className="font-medium">{sub.toolName}</TableCell>
+                                <TableCell>{useAppStore.getState().users.find(u => u.id === sub.requestedBy)?.name}</TableCell>
+                                <TableCell>{format(new Date(sub.approvalDate || sub.requestDate), "PP")}</TableCell>
+                            </TableRow>
+                        )) : <TableRow><TableCell colSpan={3} className="text-center h-24">No history found.</TableCell></TableRow>}
+                    </TableBody>
+                </Table>
+            </ScrollArea>
+        </CardContent>
+    </Card>
+);
+
 export default function HODDashboardPage() {
     const { currentUser, subscriptions, users } = useAppStore();
 
@@ -67,89 +99,102 @@ export default function HODDashboardPage() {
     const pendingApprovals = departmentSubscriptions.filter(s => s.status === 'Pending');
     const expiringSoon = departmentSubscriptions.filter(s => s.status === 'Active' && s.expiryDate && new Date(s.expiryDate) < new Date(Date.now() + 30 * 24 * 60 * 60 * 1000));
     
+    const approvedHistory = departmentSubscriptions.filter(s => s.status === 'Active' || s.status === 'Expired' || s.status === 'Approved');
+    const declinedHistory = departmentSubscriptions.filter(s => s.status === 'Declined');
+
     const getUserName = (userId: string) => users.find(u => u.id === userId)?.name || 'Unknown User';
 
     return (
-        <div className="p-4 sm:p-6 lg:p-8 space-y-8">
-            <header className="text-center md:text-left">
-                <h1 className="text-2xl md:text-3xl font-bold">Welcome, {currentUser.name}</h1>
+        <div className="space-y-6">
+            <header>
+                <h1 className="text-2xl font-bold">Welcome, {currentUser.name}</h1>
                 <p className="text-muted-foreground mt-1">Manage your department’s subscription requests efficiently.</p>
             </header>
 
             <div className="mt-6">
                 {expiringSoon.length > 0 && (
-                    <Card className="bg-[#FFF4E0] border-amber-200/80 rounded-2xl shadow-sm hover:shadow-md transition-shadow hover:-translate-y-1 mb-8">
-                        <CardHeader className="flex flex-row items-center gap-4">
-                            <AlertCircle className="h-6 w-6 text-amber-600"/>
-                            <CardTitle className="text-amber-800">Expiring Soon</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <ul className="space-y-3">
-                            {expiringSoon.map(sub => (
-                                <li key={sub.id} className="flex flex-col sm:flex-row justify-between items-start sm:items-center text-sm">
-                                    <span className="mb-2 sm:mb-0">
-                                        Your department’s subscription for <strong>{sub.toolName}</strong> is expiring {formatDistanceToNow(new Date(sub.expiryDate!), { addSuffix: true })}.
-                                    </span>
-                                    <Button size="sm" variant="outline" className="border-amber-400 text-amber-700 bg-amber-50 hover:bg-amber-100">Renew Now</Button>
-                                </li>
-                            ))}
-                            </ul>
-                        </CardContent>
-                    </Card>
+                     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
+                        <Card className="bg-amber-50 border-amber-200/80 rounded-xl shadow-sm hover:shadow-md transition-shadow hover:-translate-y-1 mb-6">
+                            <CardHeader className="flex flex-row items-center gap-4">
+                                <AlertCircle className="h-6 w-6 text-amber-600"/>
+                                <CardTitle className="text-amber-800 text-lg">Expiring Soon</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <ul className="space-y-3">
+                                {expiringSoon.map(sub => (
+                                    <li key={sub.id} className="flex flex-col sm:flex-row justify-between items-start sm:items-center text-sm">
+                                        <span className="mb-2 sm:mb-0">
+                                            Your department’s subscription for <strong>{sub.toolName}</strong> is expiring {formatDistanceToNow(new Date(sub.expiryDate!), { addSuffix: true })}.
+                                        </span>
+                                        <Button size="sm" variant="outline" className="border-amber-400 text-amber-700 bg-amber-50 hover:bg-amber-100">Renew Now</Button>
+                                    </li>
+                                ))}
+                                </ul>
+                            </CardContent>
+                        </Card>
+                    </motion.div>
                 )}
 
-                <Card className="rounded-2xl shadow-lg">
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2 text-slate-800"><Clock /> Pending Approvals</CardTitle>
-                        <CardDescription>Review and act on new subscription requests.</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        {/* For Mobile - stacked cards */}
-                        <div className="md:hidden space-y-4">
-                            {pendingApprovals.length > 0 ? pendingApprovals.map(sub => (
-                                <div key={sub.id} className="border rounded-lg p-4 space-y-3 bg-background shadow-sm">
-                                    <div className="font-bold text-lg">{sub.toolName}</div>
-                                    <div className="text-sm text-muted-foreground space-y-1">
-                                        <p><strong>Requested By:</strong> {getUserName(sub.requestedBy)}</p>
-                                        <p><strong>Cost:</strong> <span className="font-semibold text-foreground">${sub.cost.toFixed(2)}</span></p>
-                                        <p><strong>Date:</strong> {format(new Date(sub.requestDate), "PP")}</p>
+                 <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+                    <Card className="rounded-xl shadow-md">
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2 text-slate-800"><Clock /> Pending Approvals</CardTitle>
+                            <CardDescription>Review and act on new subscription requests.</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="md:hidden space-y-4">
+                                {pendingApprovals.length > 0 ? pendingApprovals.map(sub => (
+                                    <div key={sub.id} className="border rounded-lg p-4 space-y-3 bg-background shadow-sm">
+                                        <div className="font-bold text-lg">{sub.toolName}</div>
+                                        <div className="text-sm text-muted-foreground space-y-1">
+                                            <p><strong>Requested By:</strong> {getUserName(sub.requestedBy)}</p>
+                                            <p><strong>Cost:</strong> <span className="font-semibold text-foreground">${sub.cost.toFixed(2)}</span></p>
+                                            <p><strong>Date:</strong> {format(new Date(sub.requestDate), "PP")}</p>
+                                        </div>
+                                        <div className="pt-2">
+                                        <ApprovalActions subscription={sub} />
+                                        </div>
                                     </div>
-                                    <div className="pt-2">
-                                    <ApprovalActions subscription={sub} />
-                                    </div>
-                                </div>
-                            )) : <div className="text-center text-muted-foreground py-8">No pending approvals.</div>}
-                        </div>
-                        
-                        {/* For Desktop - table */}
-                        <div className="hidden md:block">
-                            <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead>Tool</TableHead>
-                                        <TableHead>Requested By</TableHead>
-                                        <TableHead>Cost</TableHead>
-                                        <TableHead>Requested On</TableHead>
-                                        <TableHead className="text-right">Actions</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {pendingApprovals.length > 0 ? pendingApprovals.map(sub => (
-                                        <TableRow key={sub.id}>
-                                            <TableCell className="font-medium">{sub.toolName}</TableCell>
-                                            <TableCell>{getUserName(sub.requestedBy)}</TableCell>
-                                            <TableCell>${sub.cost.toFixed(2)}</TableCell>
-                                            <TableCell>{format(new Date(sub.requestDate), "PP")}</TableCell>
-                                            <TableCell className="text-right">
-                                                <ApprovalActions subscription={sub} />
-                                            </TableCell>
+                                )) : <div className="text-center text-muted-foreground py-8">No pending approvals.</div>}
+                            </div>
+                            
+                            <div className="hidden md:block">
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow>
+                                            <TableHead>Tool</TableHead>
+                                            <TableHead>Requested By</TableHead>
+                                            <TableHead>Cost</TableHead>
+                                            <TableHead>Requested On</TableHead>
+                                            <TableHead className="text-right">Actions</TableHead>
                                         </TableRow>
-                                    )) : <TableRow><TableCell colSpan={5} className="text-center h-24">No pending approvals.</TableCell></TableRow>}
-                                </TableBody>
-                            </Table>
-                        </div>
-                    </CardContent>
-                </Card>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {pendingApprovals.length > 0 ? pendingApprovals.map(sub => (
+                                            <TableRow key={sub.id}>
+                                                <TableCell className="font-medium">{sub.toolName}</TableCell>
+                                                <TableCell>{getUserName(sub.requestedBy)}</TableCell>
+                                                <TableCell>${sub.cost.toFixed(2)}</TableCell>
+                                                <TableCell>{format(new Date(sub.requestDate), "PP")}</TableCell>
+                                                <TableCell className="text-right">
+                                                    <ApprovalActions subscription={sub} />
+                                                </TableCell>
+                                            </TableRow>
+                                        )) : <TableRow><TableCell colSpan={5} className="text-center h-24">No pending approvals.</TableCell></TableRow>}
+                                    </TableBody>
+                                </Table>
+                            </div>
+                        </CardContent>
+                    </Card>
+                </motion.div>
+
+                 <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
+                    <h2 className="text-xl font-bold text-slate-800 mt-8 mb-4">Subscription History</h2>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <HistoryCard title="Approved History" icon={<CheckCircle className="text-green-600"/>} data={approvedHistory} bgColor="bg-green-50/50" />
+                        <HistoryCard title="Declined History" icon={<XCircle className="text-red-600"/>} data={declinedHistory} bgColor="bg-red-50/50" />
+                    </div>
+                </motion.div>
             </div>
         </div>
     );
