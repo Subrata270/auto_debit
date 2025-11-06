@@ -24,7 +24,7 @@ const StatusBadge = ({ status }: { status: string }) => {
     return <Badge className={`capitalize border-none ${colorClass}`}>{status.toLowerCase()}</Badge>;
 };
 
-export default function EmployeeDashboardPage() {
+export default function DepartmentPOCDashboardPage() {
     const { currentUser, subscriptions } = useAppStore();
 
     if (!currentUser) return null;

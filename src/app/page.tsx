@@ -9,10 +9,10 @@ import { Button } from "@/components/ui/button"
 
 const portals = [
   {
-    name: "Employee Portal",
+    name: "Department POC Portal",
     href: "/login/employee",
     icon: <User className="h-8 w-8 text-primary" />,
-    description: "Request new subscriptions and manage your renewals.",
+    description: "Submit new subscription requests and manage department tool renewals.",
   },
   {
     name: "HOD Portal",
@@ -25,12 +25,6 @@ const portals = [
     href: "/login/finance",
     icon: <Building className="h-8 w-8 text-primary" />,
     description: "Process payments and manage subscription finances.",
-  },
-  {
-    name: "Admin Portal",
-    href: "/login/admin",
-    icon: <ShieldCheck className="h-8 w-8 text-primary" />,
-    description: "Oversee all subscriptions, users, and system analytics.",
   },
 ]
 
@@ -87,10 +81,10 @@ export default function Home() {
               },
             },
           }}
-          className="mt-12 grid grid-cols-1 gap-6 sm:grid-cols-2"
+          className="mt-12 grid grid-cols-1 gap-6 md:grid-cols-3"
         >
           {portals.map((portal) => (
-            <motion.div key={portal.name} variants={FADE_IN_ANIMATION_VARIANTS}>
+            <motion.div key={portal.name} variants={FADE_IN_ANIMATION_VARIANTS} className="md:col-span-1">
               <Card className="h-full transform transition-transform duration-300 hover:-translate-y-2 hover:shadow-2xl">
                 <CardHeader className="flex flex-row items-center gap-4">
                   {portal.icon}
