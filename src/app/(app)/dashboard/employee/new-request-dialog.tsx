@@ -23,12 +23,13 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from '@/hooks/use-toast';
+import CustomSelect from './custom-select';
 
 const formSchema = z.object({
   toolName: z.string().min(1, 'Please select a tool.'),
+  toolNameCustom: z.string().optional(),
   duration: z.coerce.number().min(1, 'Duration must be at least 1 month.'),
   cost: z.coerce.number().min(0, 'Cost cannot be negative.'),
   purpose: z.string().min(10, 'Purpose must be at least 10 characters.'),
@@ -47,6 +48,7 @@ export default function NewRequestDialog({ open, onOpenChange }: NewRequestDialo
     resolver: zodResolver(formSchema),
     defaultValues: {
       toolName: '',
+      toolNameCustom: '',
       duration: 12,
       cost: 0,
       purpose: '',
@@ -56,13 +58,16 @@ export default function NewRequestDialog({ open, onOpenChange }: NewRequestDialo
   const onSubmit = (values: z.infer<typeof formSchema>) => {
     if (!currentUser) return;
     addSubscriptionRequest({
-      ...values,
+      toolName: values.toolNameCustom || values.toolName,
+      duration: values.duration,
+      cost: values.cost,
+      purpose: values.purpose,
       department: currentUser.department,
       requestedBy: currentUser.id,
     });
     toast({
         title: "Request Submitted!",
-        description: `Your request for ${values.toolName} is now pending approval.`,
+        description: `Your request for ${values.toolNameCustom || values.toolName} is now pending approval.`,
     })
     form.reset();
     onOpenChange(false);
@@ -79,27 +84,12 @@ export default function NewRequestDialog({ open, onOpenChange }: NewRequestDialo
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-4">
-            <FormField
-              control={form.control}
+            <CustomSelect
+              form={form}
               name="toolName"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Tool Name</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select a tool" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {toolOptions.map(tool => (
-                        <SelectItem key={tool} value={tool}>{tool}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
+              label="Tool Name"
+              placeholder="Select a tool"
+              options={toolOptions}
             />
              <div className="grid grid-cols-2 gap-4">
                 <FormField
