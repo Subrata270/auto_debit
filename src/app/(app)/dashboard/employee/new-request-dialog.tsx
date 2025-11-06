@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useForm } from 'react-hook-form';
@@ -26,6 +27,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from '@/hooks/use-toast';
 import CustomSelect from './custom-select';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 const formSchema = z.object({
   toolName: z.string().min(1, 'Please select a tool.'),
@@ -87,76 +89,78 @@ export default function NewRequestDialog({ open, onOpenChange }: NewRequestDialo
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="w-[95%] sm:w-[90%] md:max-w-2xl">
         <DialogHeader>
           <DialogTitle>New Subscription Request</DialogTitle>
           <DialogDescription>
             Fill out the form below to request a new software subscription.
           </DialogDescription>
         </DialogHeader>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-4">
-            <CustomSelect
-              form={form}
-              name="toolName"
-              label="Tool Name"
-              placeholder="Select a tool"
-              options={toolOptions}
-            />
-             <CustomSelect
-              form={form}
-              name="department"
-              label="Department"
-              placeholder="Select a department"
-              options={departmentOptions}
-            />
-             <div className="grid grid-cols-2 gap-4">
-                <FormField
-                    control={form.control}
-                    name="duration"
-                    render={({ field }) => (
-                        <FormItem>
-                        <FormLabel>Duration (months)</FormLabel>
-                        <FormControl>
-                            <Input type="number" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                        </FormItem>
-                    )}
+        <ScrollArea className="max-h-[70vh] pr-4">
+            <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-4">
+                <CustomSelect
+                form={form}
+                name="toolName"
+                label="Tool Name"
+                placeholder="Select a tool"
+                options={toolOptions}
                 />
-                <FormField
-                    control={form.control}
-                    name="cost"
-                    render={({ field }) => (
-                        <FormItem>
-                        <FormLabel>Total Cost ($)</FormLabel>
-                        <FormControl>
-                            <Input type="number" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                        </FormItem>
-                    )}
+                <CustomSelect
+                form={form}
+                name="department"
+                label="Department"
+                placeholder="Select a department"
+                options={departmentOptions}
                 />
-            </div>
-            <FormField
-              control={form.control}
-              name="purpose"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Purpose</FormLabel>
-                  <FormControl>
-                    <Textarea placeholder="Explain why this subscription is needed..." {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <DialogFooter>
-                <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
-                <Button type="submit">Submit Request</Button>
-            </DialogFooter>
-          </form>
-        </Form>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <FormField
+                        control={form.control}
+                        name="duration"
+                        render={({ field }) => (
+                            <FormItem>
+                            <FormLabel>Duration (months)</FormLabel>
+                            <FormControl>
+                                <Input type="number" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+                    <FormField
+                        control={form.control}
+                        name="cost"
+                        render={({ field }) => (
+                            <FormItem>
+                            <FormLabel>Total Cost ($)</FormLabel>
+                            <FormControl>
+                                <Input type="number" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+                </div>
+                <FormField
+                control={form.control}
+                name="purpose"
+                render={({ field }) => (
+                    <FormItem>
+                    <FormLabel>Purpose</FormLabel>
+                    <FormControl>
+                        <Textarea placeholder="Explain why this subscription is needed..." {...field} />
+                    </FormControl>
+                    <FormMessage />
+                    </FormItem>
+                )}
+                />
+                <DialogFooter className="pt-4">
+                    <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
+                    <Button type="submit">Submit Request</Button>
+                </DialogFooter>
+            </form>
+            </Form>
+        </ScrollArea>
       </DialogContent>
     </Dialog>
   );
