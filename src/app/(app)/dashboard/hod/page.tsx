@@ -14,6 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { motion } from "framer-motion";
+import DeclineInfoDialog from "../../components/decline-info-dialog";
 
 const ApprovalActions = ({ subscription }: { subscription: Subscription }) => {
     const { updateSubscriptionStatus } = useAppStore();
@@ -60,7 +61,7 @@ const ApprovalActions = ({ subscription }: { subscription: Subscription }) => {
     );
 };
 
-const HistoryCard = ({ title, icon, data, bgColor }: { title: string, icon: React.ReactNode, data: Subscription[], bgColor: string }) => (
+const HistoryCard = ({ title, icon, data, bgColor, isDecline = false }: { title: string, icon: React.ReactNode, data: Subscription[], bgColor: string, isDecline?: boolean }) => (
     <Card className={`rounded-xl shadow-md ${bgColor}`}>
         <CardHeader>
             <CardTitle className="flex items-center gap-2 text-slate-800">{icon}{title}</CardTitle>
@@ -77,11 +78,21 @@ const HistoryCard = ({ title, icon, data, bgColor }: { title: string, icon: Reac
                     </TableHeader>
                     <TableBody>
                         {data.length > 0 ? data.map(sub => (
-                            <TableRow key={sub.id}>
-                                <TableCell className="font-medium">{sub.toolName}</TableCell>
-                                <TableCell>{useAppStore.getState().users.find(u => u.id === sub.requestedBy)?.name}</TableCell>
-                                <TableCell>{format(new Date(sub.approvalDate || sub.requestDate), "PP")}</TableCell>
-                            </TableRow>
+                            isDecline ? (
+                                <DeclineInfoDialog key={sub.id} subscription={sub}>
+                                  <TableRow className="cursor-pointer hover:bg-red-100/50">
+                                      <TableCell className="font-medium">{sub.toolName}</TableCell>
+                                      <TableCell>{useAppStore.getState().users.find(u => u.id === sub.requestedBy)?.name}</TableCell>
+                                      <TableCell>{format(new Date(sub.approvalDate || sub.requestDate), "PP")}</TableCell>
+                                  </TableRow>
+                                </DeclineInfoDialog>
+                            ) : (
+                                <TableRow key={sub.id}>
+                                    <TableCell className="font-medium">{sub.toolName}</TableCell>
+                                    <TableCell>{useAppStore.getState().users.find(u => u.id === sub.requestedBy)?.name}</TableCell>
+                                    <TableCell>{format(new Date(sub.approvalDate || sub.requestDate), "PP")}</TableCell>
+                                </TableRow>
+                            )
                         )) : <TableRow><TableCell colSpan={3} className="text-center h-24">No history found.</TableCell></TableRow>}
                     </TableBody>
                 </Table>
@@ -192,7 +203,7 @@ export default function HODDashboardPage() {
                     <h2 className="text-xl font-bold text-slate-800 mt-8 mb-4">Subscription History</h2>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <HistoryCard title="Approved History" icon={<CheckCircle className="text-green-600"/>} data={approvedHistory} bgColor="bg-green-50/50" />
-                        <HistoryCard title="Declined History" icon={<XCircle className="text-red-600"/>} data={declinedHistory} bgColor="bg-red-50/50" />
+                        <HistoryCard title="Declined History" icon={<XCircle className="text-red-600"/>} data={declinedHistory} bgColor="bg-red-50/50" isDecline={true}/>
                     </div>
                 </motion.div>
             </div>
