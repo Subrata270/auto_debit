@@ -76,79 +76,81 @@ export default function HODDashboardPage() {
                 <p className="text-muted-foreground mt-1">Manage your department’s subscription requests efficiently.</p>
             </header>
 
-            {expiringSoon.length > 0 && (
-                 <Card className="bg-[#FFF4E0] border-amber-200/80 rounded-2xl shadow-sm hover:shadow-md transition-shadow hover:-translate-y-1">
-                    <CardHeader className="flex flex-row items-center gap-4">
-                        <AlertCircle className="h-6 w-6 text-amber-600"/>
-                        <CardTitle className="text-amber-800">Expiring Soon</CardTitle>
+            <div className="mt-6">
+                {expiringSoon.length > 0 && (
+                    <Card className="bg-[#FFF4E0] border-amber-200/80 rounded-2xl shadow-sm hover:shadow-md transition-shadow hover:-translate-y-1 mb-8">
+                        <CardHeader className="flex flex-row items-center gap-4">
+                            <AlertCircle className="h-6 w-6 text-amber-600"/>
+                            <CardTitle className="text-amber-800">Expiring Soon</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <ul className="space-y-3">
+                            {expiringSoon.map(sub => (
+                                <li key={sub.id} className="flex flex-col sm:flex-row justify-between items-start sm:items-center text-sm">
+                                    <span className="mb-2 sm:mb-0">
+                                        Your department’s subscription for <strong>{sub.toolName}</strong> is expiring {formatDistanceToNow(new Date(sub.expiryDate!), { addSuffix: true })}.
+                                    </span>
+                                    <Button size="sm" variant="outline" className="border-amber-400 text-amber-700 bg-amber-50 hover:bg-amber-100">Renew Now</Button>
+                                </li>
+                            ))}
+                            </ul>
+                        </CardContent>
+                    </Card>
+                )}
+
+                <Card className="rounded-2xl shadow-lg">
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2 text-slate-800"><Clock /> Pending Approvals</CardTitle>
+                        <CardDescription>Review and act on new subscription requests.</CardDescription>
                     </CardHeader>
                     <CardContent>
-                        <ul className="space-y-3">
-                        {expiringSoon.map(sub => (
-                            <li key={sub.id} className="flex flex-col sm:flex-row justify-between items-start sm:items-center text-sm">
-                                <span className="mb-2 sm:mb-0">
-                                    Your department’s subscription for <strong>{sub.toolName}</strong> is expiring {formatDistanceToNow(new Date(sub.expiryDate!), { addSuffix: true })}.
-                                </span>
-                                <Button size="sm" variant="outline" className="border-amber-400 text-amber-700 bg-amber-50 hover:bg-amber-100">Renew Now</Button>
-                            </li>
-                        ))}
-                        </ul>
+                        {/* For Mobile - stacked cards */}
+                        <div className="md:hidden space-y-4">
+                            {pendingApprovals.length > 0 ? pendingApprovals.map(sub => (
+                                <div key={sub.id} className="border rounded-lg p-4 space-y-3 bg-background shadow-sm">
+                                    <div className="font-bold text-lg">{sub.toolName}</div>
+                                    <div className="text-sm text-muted-foreground space-y-1">
+                                        <p><strong>Requested By:</strong> {getUserName(sub.requestedBy)}</p>
+                                        <p><strong>Cost:</strong> <span className="font-semibold text-foreground">${sub.cost.toFixed(2)}</span></p>
+                                        <p><strong>Date:</strong> {format(new Date(sub.requestDate), "PP")}</p>
+                                    </div>
+                                    <div className="pt-2">
+                                    <ApprovalActions subscription={sub} />
+                                    </div>
+                                </div>
+                            )) : <div className="text-center text-muted-foreground py-8">No pending approvals.</div>}
+                        </div>
+                        
+                        {/* For Desktop - table */}
+                        <div className="hidden md:block">
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>Tool</TableHead>
+                                        <TableHead>Requested By</TableHead>
+                                        <TableHead>Cost</TableHead>
+                                        <TableHead>Requested On</TableHead>
+                                        <TableHead className="text-right">Actions</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {pendingApprovals.length > 0 ? pendingApprovals.map(sub => (
+                                        <TableRow key={sub.id}>
+                                            <TableCell className="font-medium">{sub.toolName}</TableCell>
+                                            <TableCell>{getUserName(sub.requestedBy)}</TableCell>
+                                            <TableCell>${sub.cost.toFixed(2)}</TableCell>
+                                            <TableCell>{format(new Date(sub.requestDate), "PP")}</TableCell>
+                                            <TableCell className="text-right">
+                                                <ApprovalActions subscription={sub} />
+                                            </TableCell>
+                                        </TableRow>
+                                    )) : <TableRow><TableCell colSpan={5} className="text-center h-24">No pending approvals.</TableCell></TableRow>}
+                                </TableBody>
+                            </Table>
+                        </div>
                     </CardContent>
                 </Card>
-            )}
-
-            <Card className="rounded-2xl shadow-lg">
-                <CardHeader>
-                    <CardTitle className="flex items-center gap-2 text-slate-800"><Clock /> Pending Approvals</CardTitle>
-                    <CardDescription>Review and act on new subscription requests.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                    {/* For Mobile - stacked cards */}
-                    <div className="md:hidden space-y-4">
-                        {pendingApprovals.length > 0 ? pendingApprovals.map(sub => (
-                            <div key={sub.id} className="border rounded-lg p-4 space-y-3 bg-background shadow-sm">
-                                <div className="font-bold text-lg">{sub.toolName}</div>
-                                <div className="text-sm text-muted-foreground space-y-1">
-                                    <p><strong>Requested By:</strong> {getUserName(sub.requestedBy)}</p>
-                                    <p><strong>Cost:</strong> <span className="font-semibold text-foreground">${sub.cost.toFixed(2)}</span></p>
-                                    <p><strong>Date:</strong> {format(new Date(sub.requestDate), "PP")}</p>
-                                </div>
-                                <div className="pt-2">
-                                  <ApprovalActions subscription={sub} />
-                                </div>
-                            </div>
-                        )) : <div className="text-center text-muted-foreground py-8">No pending approvals.</div>}
-                    </div>
-                    
-                    {/* For Desktop - table */}
-                    <div className="hidden md:block">
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead>Tool</TableHead>
-                                    <TableHead>Requested By</TableHead>
-                                    <TableHead>Cost</TableHead>
-                                    <TableHead>Requested On</TableHead>
-                                    <TableHead className="text-right">Actions</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {pendingApprovals.length > 0 ? pendingApprovals.map(sub => (
-                                    <TableRow key={sub.id}>
-                                        <TableCell className="font-medium">{sub.toolName}</TableCell>
-                                        <TableCell>{getUserName(sub.requestedBy)}</TableCell>
-                                        <TableCell>${sub.cost.toFixed(2)}</TableCell>
-                                        <TableCell>{format(new Date(sub.requestDate), "PP")}</TableCell>
-                                        <TableCell className="text-right">
-                                            <ApprovalActions subscription={sub} />
-                                        </TableCell>
-                                    </TableRow>
-                                )) : <TableRow><TableCell colSpan={5} className="text-center h-24">No pending approvals.</TableCell></TableRow>}
-                            </TableBody>
-                        </Table>
-                    </div>
-                </CardContent>
-            </Card>
+            </div>
         </div>
     );
 }

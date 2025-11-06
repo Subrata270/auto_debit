@@ -89,7 +89,7 @@ export default function FinanceDashboardPage() {
                 <p className="text-muted-foreground mt-1">Manage your department’s subscriptions, approvals, and renewals efficiently.</p>
             </header>
             
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4 mt-6">
                 <Card className="bg-gradient-to-br from-blue-100 to-blue-200">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-sm font-medium">Pending Payments</CardTitle>

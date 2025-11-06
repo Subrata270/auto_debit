@@ -24,7 +24,7 @@ export default function Header() {
         <div className="flex items-center gap-4 flex-1">
             <SidebarTrigger className="md:hidden"/>
              <div className="hidden md:flex items-center gap-2">
-                <Logo size="sm" />
+                <Logo size="sm" hideText={true} />
              </div>
             <h1 className="text-xl font-semibold whitespace-nowrap hidden md:block">{title}</h1>
         </div>

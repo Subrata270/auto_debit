@@ -51,7 +51,7 @@ export default function AdminDashboardPage() {
     const spendingData = Object.values(monthlySpendingData).slice(-6); // Last 6 months
 
     return (
-        <div className="space-y-8">
+        <div className="p-4 sm:p-6 lg:p-8 space-y-8">
             <header>
                 <h1 className="text-3xl font-bold">Admin Overview</h1>
                 <p className="text-muted-foreground">A complete overview of the subscription ecosystem.</p>

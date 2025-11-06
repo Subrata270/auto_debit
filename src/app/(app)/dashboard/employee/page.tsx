@@ -52,7 +52,7 @@ export default function DepartmentPOCDashboardPage() {
 
 
     return (
-        <div className="space-y-8">
+        <div className="p-4 sm:p-6 lg:p-8 space-y-8">
             <header>
                 <h1 className="text-3xl font-bold text-slate-800">Welcome to the Department of POC Dashboard!</h1>
                 <p className="text-slate-500">Manage your department's active subscriptions and renewal alerts efficiently.</p>
@@ -60,7 +60,7 @@ export default function DepartmentPOCDashboardPage() {
             
             <NewRequestDialog open={isNewRequestOpen} onOpenChange={setIsNewRequestOpen} />
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-6">
                 {renewalAlerts.length > 0 && (
                      <motion.div variants={cardVariants} initial="hidden" animate="visible" custom={0}>
                         <Card className="rounded-2xl bg-gradient-to-br from-amber-50 to-orange-100 shadow-md transition-all duration-300 hover:-translate-y-1 hover:shadow-xl h-full">
