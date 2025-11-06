@@ -193,5 +193,3 @@ export default function LoginForm({ role, title, subRoleOptions }: LoginFormProp
     </motion.div>
   );
 }
-
-    
