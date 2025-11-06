@@ -30,12 +30,12 @@ const ApprovalActions = ({ subscription }: { subscription: Subscription }) => {
 
     return (
         <div className="flex gap-2 justify-end">
-            <Button size="sm" variant="outline" className="text-green-600 border-green-600 hover:bg-green-50 hover:text-green-700" onClick={handleApprove}>
+            <Button size="sm" variant="outline" className="text-green-600 border-green-600 hover:bg-green-50 hover:text-green-700 transition-all hover:scale-105" onClick={handleApprove}>
                 <CheckCircle className="mr-2 h-4 w-4"/>Approve
             </Button>
             <Dialog open={isDeclineOpen} onOpenChange={setIsDeclineOpen}>
                 <DialogTrigger asChild>
-                    <Button size="sm" variant="outline" className="text-red-600 border-red-600 hover:bg-red-50 hover:text-red-700">
+                    <Button size="sm" variant="outline" className="text-red-600 border-red-600 hover:bg-red-50 hover:text-red-700 transition-all hover:scale-105">
                         <XCircle className="mr-2 h-4 w-4"/>Decline
                     </Button>
                 </DialogTrigger>
@@ -70,14 +70,14 @@ export default function HODDashboardPage() {
     const getUserName = (userId: string) => users.find(u => u.id === userId)?.name || 'Unknown User';
 
     return (
-        <div className="space-y-6 md:space-y-8 p-4 md:p-6 lg:p-8">
+        <div className="p-4 sm:p-6 lg:p-8 space-y-8">
             <header className="text-center md:text-left">
                 <h1 className="text-2xl md:text-3xl font-bold">Welcome, {currentUser.name}</h1>
-                <p className="text-muted-foreground">Manage your department’s subscription requests efficiently.</p>
+                <p className="text-muted-foreground mt-1">Manage your department’s subscription requests efficiently.</p>
             </header>
 
             {expiringSoon.length > 0 && (
-                 <Card className="bg-amber-50/50 border-amber-200/80 rounded-2xl shadow-sm hover:shadow-md transition-shadow">
+                 <Card className="bg-[#FFF4E0] border-amber-200/80 rounded-2xl shadow-sm hover:shadow-md transition-shadow hover:-translate-y-1">
                     <CardHeader className="flex flex-row items-center gap-4">
                         <AlertCircle className="h-6 w-6 text-amber-600"/>
                         <CardTitle className="text-amber-800">Expiring Soon</CardTitle>
@@ -89,7 +89,7 @@ export default function HODDashboardPage() {
                                 <span className="mb-2 sm:mb-0">
                                     Your department’s subscription for <strong>{sub.toolName}</strong> is expiring {formatDistanceToNow(new Date(sub.expiryDate!), { addSuffix: true })}.
                                 </span>
-                                <Button size="sm" variant="outline" className="border-amber-400 text-amber-700 hover:bg-amber-100">Renew Now</Button>
+                                <Button size="sm" variant="outline" className="border-amber-400 text-amber-700 bg-amber-50 hover:bg-amber-100">Renew Now</Button>
                             </li>
                         ))}
                         </ul>
@@ -108,12 +108,14 @@ export default function HODDashboardPage() {
                         {pendingApprovals.length > 0 ? pendingApprovals.map(sub => (
                             <div key={sub.id} className="border rounded-lg p-4 space-y-3 bg-background shadow-sm">
                                 <div className="font-bold text-lg">{sub.toolName}</div>
-                                <div className="text-sm text-muted-foreground">
+                                <div className="text-sm text-muted-foreground space-y-1">
                                     <p><strong>Requested By:</strong> {getUserName(sub.requestedBy)}</p>
-                                    <p><strong>Cost:</strong> ${sub.cost.toFixed(2)}</p>
+                                    <p><strong>Cost:</strong> <span className="font-semibold text-foreground">${sub.cost.toFixed(2)}</span></p>
                                     <p><strong>Date:</strong> {format(new Date(sub.requestDate), "PP")}</p>
                                 </div>
-                                <ApprovalActions subscription={sub} />
+                                <div className="pt-2">
+                                  <ApprovalActions subscription={sub} />
+                                </div>
                             </div>
                         )) : <div className="text-center text-muted-foreground py-8">No pending approvals.</div>}
                     </div>
