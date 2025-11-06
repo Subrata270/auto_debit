@@ -125,19 +125,16 @@ export default function HODDashboardPage() {
             <div className="mt-6">
                 {expiringSoon.length > 0 && (
                      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
-                        <Card className="bg-amber-50 border-amber-200/80 rounded-xl shadow-sm hover:shadow-md transition-shadow hover:-translate-y-1 mb-6">
-                            <CardHeader className="flex flex-row items-center gap-4">
+                        <Card className="rounded-2xl shadow-sm hover:shadow-md transition-shadow hover:-translate-y-1 mb-6 bg-[#FFF7E6] border border-[#FFD580]">
+                            <CardHeader className="flex flex-row items-center gap-4 py-4 px-6">
                                 <AlertCircle className="h-6 w-6 text-amber-600"/>
-                                <CardTitle className="text-amber-800 text-lg">Expiring Soon</CardTitle>
+                                <CardTitle className="text-amber-800 text-lg font-semibold">Expiring Soon</CardTitle>
                             </CardHeader>
-                            <CardContent>
+                            <CardContent className="px-6 pb-4">
                                 <ul className="space-y-3">
                                 {expiringSoon.map(sub => (
-                                    <li key={sub.id} className="flex flex-col sm:flex-row justify-between items-start sm:items-center text-sm">
-                                        <span className="mb-2 sm:mb-0">
-                                            Your department’s subscription for <strong>{sub.toolName}</strong> is expiring {formatDistanceToNow(new Date(sub.expiryDate!), { addSuffix: true })}.
-                                        </span>
-                                        <Button size="sm" variant="outline" className="border-amber-400 text-amber-700 bg-amber-50 hover:bg-amber-100">Renew Now</Button>
+                                    <li key={sub.id} className="text-sm text-slate-700">
+                                        Your department’s subscription for <strong>{sub.toolName}</strong> is expiring {formatDistanceToNow(new Date(sub.expiryDate!), { addSuffix: true })}.
                                     </li>
                                 ))}
                                 </ul>
