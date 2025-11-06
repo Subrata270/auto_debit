@@ -11,6 +11,7 @@ export default function DashboardPage() {
     if (currentUser) {
       router.replace(`/dashboard/${currentUser.role}`);
     } else {
+        // If there's no user, maybe they logged out, redirect to home
         router.replace('/');
     }
   }, [currentUser, router]);
@@ -21,3 +22,5 @@ export default function DashboardPage() {
     </div>
   );
 }
+
+    

@@ -9,6 +9,7 @@ export interface User {
   role: Role;
   subrole: SubRole;
   department: string;
+  googleUid?: string;
 }
 
 export type SubscriptionStatus = 'Pending' | 'Approved' | 'Declined' | 'Active' | 'Expired' | 'Payment Pending';
@@ -44,3 +45,5 @@ export interface AppNotification {
 export const toolOptions = ['ChatGPT', 'Canva', 'Figma', 'Notion', 'Zoom', 'Adobe Creative Cloud', 'Slack', 'Microsoft 365'];
 
 export const departmentOptions = ['Marketing', 'Engineering', 'Finance', 'IT', 'HR', 'Sales'];
+
+    

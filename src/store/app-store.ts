@@ -5,14 +5,17 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import { User, Subscription, AppNotification, Role, SubRole, SubscriptionStatus } from '@/lib/types';
 import { mockUsers, mockSubscriptions, mockNotifications } from '@/lib/data';
 import { add, formatISO } from 'date-fns';
+import { getAuth, signInWithPopup, GoogleAuthProvider, User as FirebaseUser } from 'firebase/auth';
+import { initializeFirebase } from '@/firebase';
 
 interface AppState {
   users: User[];
   subscriptions: Subscription[];
   notifications: AppNotification[];
   currentUser: User | null;
-  register: (user: Omit<User, 'id' | 'subrole'>) => void;
+  register: (user: Omit<User, 'id' | 'subrole' | 'googleUid'>) => void;
   login: (email: string, password: string, role: Role, subrole?: SubRole) => User | null;
+  loginWithGoogle: (role: Role, subrole?: SubRole) => Promise<User | null>;
   logout: () => void;
   addSubscriptionRequest: (request: Omit<Subscription, 'id' | 'status' | 'requestDate'>) => void;
   renewSubscription: (subscriptionId: string, renewalDuration: number, updatedCost: number, remarks: string) => void;
@@ -64,10 +67,59 @@ export const useAppStore = create<AppState>()(
           get().addNotification(user.id, `Welcome back, ${user.name}! You've successfully logged in.`);
           return user;
         }
-        return null;
+        throw new Error("Invalid credentials or wrong portal.");
       },
 
-      logout: () => {
+      loginWithGoogle: async (role, subrole = null) => {
+        const { auth } = initializeFirebase();
+        const provider = new GoogleAuthProvider();
+
+        try {
+            const result = await signInWithPopup(auth, provider);
+            const googleUser = result.user;
+
+            if (!googleUser.email) {
+                throw new Error("Could not retrieve email from Google account.");
+            }
+
+            const appUser = get().users.find(
+                (u) =>
+                    u.email === googleUser.email &&
+                    u.role === role &&
+                    (role !== 'finance' || u.subrole === subrole)
+            );
+
+            if (appUser) {
+                // Optional: Link Google UID to the user account if not already present
+                if (!appUser.googleUid) {
+                    set(state => ({
+                        users: state.users.map(u => u.id === appUser.id ? {...u, googleUid: googleUser.uid} : u)
+                    }));
+                }
+                const updatedUser = get().users.find(u => u.id === appUser.id)!;
+                set({ currentUser: updatedUser });
+                get().addNotification(updatedUser.id, `Welcome back, ${updatedUser.name}! You've successfully logged in with Google.`);
+                return updatedUser;
+            } else {
+                const userExists = get().users.some(u => u.email === googleUser.email);
+                 if (userExists) {
+                    throw new Error("Access Denied: Your Google account does not match this portal's role.");
+                } else {
+                    throw new Error("You are not registered. Please create an account or contact an administrator.");
+                }
+            }
+        } catch (error: any) {
+            // Handle specific Firebase error codes
+            if (error.code === 'auth/popup-closed-by-user') {
+                 throw new Error("Login cancelled. Please try again.");
+            }
+            throw error;
+        }
+      },
+
+      logout: async () => {
+        const { auth } = initializeFirebase();
+        await auth.signOut();
         set({ currentUser: null });
       },
       
@@ -204,3 +256,5 @@ export const useAppStore = create<AppState>()(
     }
   )
 );
+
+    
