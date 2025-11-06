@@ -1,3 +1,4 @@
+
 "use client";
 
 import {
@@ -10,6 +11,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { UseFormReturn } from "react-hook-form";
+import { useState } from "react";
 
 interface CustomSelectProps {
   form: UseFormReturn<any>;
@@ -27,11 +29,21 @@ export default function CustomSelect({
   options,
 }: CustomSelectProps) {
   const customInputName = `${name}Custom`;
+  const [showCustom, setShowCustom] = useState(false);
+
+  const handleValueChange = (value: string) => {
+    if (value === 'add-custom') {
+      setShowCustom(true);
+      form.setValue(name, '');
+    } else {
+      setShowCustom(false);
+      form.setValue(name, value);
+      form.setValue(customInputName, ''); // Clear custom input if a real option is selected
+    }
+  };
 
   const selectedValue = form.watch(name);
   const customValue = form.watch(customInputName);
-  const displayValue = customValue || selectedValue;
-  const source = customValue ? 'custom' : (selectedValue ? 'dropdown' : '');
 
   return (
     <div>
@@ -41,7 +53,7 @@ export default function CustomSelect({
         render={({ field }) => (
             <FormItem>
             <FormLabel>{label}</FormLabel>
-            <Select onValueChange={field.onChange} defaultValue={field.value}>
+            <Select onValueChange={handleValueChange} value={showCustom ? 'add-custom' : field.value}>
                 <FormControl>
                 <SelectTrigger>
                     <SelectValue placeholder={placeholder} />
@@ -51,29 +63,28 @@ export default function CustomSelect({
                 {options.map(option => (
                     <SelectItem key={option} value={option}>{option}</SelectItem>
                 ))}
+                <SelectItem value="add-custom" className="text-primary font-semibold">
+                    + Add Custom {label}
+                </SelectItem>
                 </SelectContent>
             </Select>
             <FormMessage />
             </FormItem>
         )}
         />
-        <FormField
-            control={form.control}
-            name={customInputName}
-            render={({ field }) => (
-                <FormItem className="mt-2">
-                <FormLabel className="text-xs text-muted-foreground">Or enter custom {label.toLowerCase()}</FormLabel>
-                <FormControl>
-                    <Input placeholder={`Custom ${label.toLowerCase()}`} {...field} />
-                </FormControl>
-                <FormMessage />
-                </FormItem>
-            )}
-        />
-         {displayValue && (
-          <p className="mt-2 text-xs text-muted-foreground">
-            Using: {displayValue} ({source})
-          </p>
+        {showCustom && (
+            <FormField
+                control={form.control}
+                name={customInputName}
+                render={({ field }) => (
+                    <FormItem className="mt-2">
+                    <FormControl>
+                        <Input autoFocus placeholder={`Enter custom ${label.toLowerCase()}`} {...field} />
+                    </FormControl>
+                    <FormMessage />
+                    </FormItem>
+                )}
+            />
         )}
     </div>
   );

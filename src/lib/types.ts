@@ -1,3 +1,4 @@
+
 export type Role = 'employee' | 'hod' | 'finance' | 'admin';
 export type SubRole = 'apa' | 'am' | null;
 
@@ -44,4 +45,6 @@ export interface AppNotification {
 
 export const toolOptions = ['ChatGPT', 'Canva', 'Figma', 'Notion', 'Zoom', 'Adobe Creative Cloud', 'Slack', 'Microsoft 365'];
 
-export const departmentOptions = ['Marketing', 'Engineering', 'Finance', 'IT', 'HR', 'Sales'];
+export const departmentOptions = ['Marketing', 'Engineering', 'Finance', 'IT', 'HR', 'Sales', 'Operations'];
+
+export const categoryOptions = ['Design', 'Marketing', 'Development', 'AI Tools', 'Cloud', 'Productivity', 'Others'];
