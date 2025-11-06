@@ -5,7 +5,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useAppStore } from '@/store/app-store';
-import { Subscription, toolOptions, categoryOptions, departmentOptions } from '@/lib/types';
+import { Subscription, toolOptions, departmentOptions } from '@/lib/types';
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -46,7 +46,6 @@ const formSchema = z.object({
   duration: z.string().min(1, 'Duration is required.'),
   durationCustom: z.coerce.number().optional(),
   frequency: z.enum(['Monthly', 'Quarterly', 'Yearly', 'One-time']),
-  category: z.string().min(1, 'Please select a category.'),
   department: z.string().min(1, 'Please select a department.'),
   poc: z.string().min(1, 'Person of contact is required.'),
   justification: z.string().min(20, 'Justification must be at least 20 characters.'),
@@ -76,7 +75,6 @@ export default function RenewRequestDialog({ subscription, trigger }: RenewReque
       duration: subscription.duration.toString(),
       durationCustom: undefined,
       frequency: 'Monthly',
-      category: 'Others',
       department: subscription.department,
       poc: subscription.requestedBy, // Assuming requestedBy is an email/ID
       justification: '',
@@ -334,21 +332,6 @@ export default function RenewRequestDialog({ subscription, trigger }: RenewReque
                         )}
                     />
 
-                    <FormField
-                        control={form.control}
-                        name="category"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Category</FormLabel>
-                                <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                    <FormControl><SelectTrigger><SelectValue placeholder="Select a category" /></SelectTrigger></FormControl>
-                                    <SelectContent>{categoryOptions.map(opt => <SelectItem key={opt} value={opt}>{opt}</SelectItem>)}</SelectContent>
-                                </Select>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
-
                      <FormField
                         control={form.control}
                         name="department"
@@ -404,5 +387,7 @@ export default function RenewRequestDialog({ subscription, trigger }: RenewReque
     </Dialog>
   );
 }
+
+    
 
     
