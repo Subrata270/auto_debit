@@ -52,10 +52,10 @@ const formSchema = z.object({
 
 interface RenewRequestDialogProps {
     subscription: Subscription;
-    trigger: React.ReactNode;
+    dialogTrigger: React.ReactNode;
 }
 
-export default function RenewRequestDialog({ subscription, trigger }: RenewRequestDialogProps) {
+export default function RenewRequestDialog({ subscription, dialogTrigger }: RenewRequestDialogProps) {
   const { renewSubscription, currentUser } = useAppStore();
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
@@ -170,7 +170,7 @@ export default function RenewRequestDialog({ subscription, trigger }: RenewReque
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>{trigger}</DialogTrigger>
+      <DialogTrigger asChild>{dialogTrigger}</DialogTrigger>
       <DialogContent className="w-[95%] sm:w-[90%] md:max-w-3xl rounded-xl">
         <DialogHeader>
           <DialogTitle className="text-2xl group">
