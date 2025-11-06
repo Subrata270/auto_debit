@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { SidebarProvider, Sidebar, SidebarInset } from '@/components/ui/sidebar';
+import { SidebarProvider } from '@/components/ui/sidebar';
 import MainSidebar from './components/main-sidebar';
 import Header from './components/header';
 import { useAppStore } from '@/store/app-store';
@@ -43,5 +43,3 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     </FirebaseClientProvider>
   );
 }
-
-    

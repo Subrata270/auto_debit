@@ -74,6 +74,12 @@ export const useAppStore = create<AppState>()(
         const { auth } = initializeFirebase();
         const provider = new GoogleAuthProvider();
 
+        if (role === 'finance' && subrole) {
+            provider.setCustomParameters({
+              login_hint: `Logging in as Finance (${subrole.toUpperCase()})`
+            });
+        }
+
         try {
             const result = await signInWithPopup(auth, provider);
             const googleUser = result.user;
@@ -82,37 +88,31 @@ export const useAppStore = create<AppState>()(
                 throw new Error("Could not retrieve email from Google account.");
             }
 
-            const appUser = get().users.find(
-                (u) =>
-                    u.email === googleUser.email &&
-                    u.role === role &&
-                    (role !== 'finance' || u.subrole === subrole)
-            );
+            const appUser = get().users.find(u => u.email === googleUser.email);
+            
+            if (!appUser) {
+                throw new Error("You are not registered. Please create an account or contact an administrator.");
+            }
 
-            if (appUser) {
-                // Optional: Link Google UID to the user account if not already present
-                if (!appUser.googleUid) {
-                    set(state => ({
-                        users: state.users.map(u => u.id === appUser.id ? {...u, googleUid: googleUser.uid} : u)
-                    }));
-                }
-                const updatedUser = get().users.find(u => u.id === appUser.id)!;
-                set({ currentUser: updatedUser });
+            const isRoleMatch = appUser.role === role;
+            const isSubRoleMatch = role !== 'finance' || appUser.subrole === subrole;
+
+            if (isRoleMatch && isSubRoleMatch) {
+                const updatedUser: User = { ...appUser, googleUid: googleUser.uid };
+                 set(state => ({
+                    users: state.users.map(u => u.id === appUser.id ? updatedUser : u),
+                    currentUser: updatedUser
+                }));
                 get().addNotification(updatedUser.id, `Welcome back, ${updatedUser.name}! You've successfully logged in with Google.`);
                 return updatedUser;
             } else {
-                const userExists = get().users.some(u => u.email === googleUser.email);
-                 if (userExists) {
-                    throw new Error("Access Denied: Your Google account does not match this portal's role.");
-                } else {
-                    throw new Error("You are not registered. Please create an account or contact an administrator.");
-                }
+                 throw new Error("Access Denied: Your Google account does not match this portal's role.");
             }
         } catch (error: any) {
-            // Handle specific Firebase error codes
             if (error.code === 'auth/popup-closed-by-user') {
                  throw new Error("Login cancelled. Please try again.");
             }
+            // Re-throw other errors to be caught by the UI
             throw error;
         }
       },
@@ -256,5 +256,3 @@ export const useAppStore = create<AppState>()(
     }
   )
 );
-
-    
