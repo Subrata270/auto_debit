@@ -11,6 +11,7 @@ interface AppState {
   subscriptions: Subscription[];
   notifications: AppNotification[];
   currentUser: User | null;
+  register: (user: Omit<User, 'id' | 'subrole'>) => void;
   login: (email: string, password: string, role: Role, subrole?: SubRole) => User | null;
   logout: () => void;
   addSubscriptionRequest: (request: Omit<Subscription, 'id' | 'status' | 'requestDate'>) => void;
@@ -30,6 +31,24 @@ export const useAppStore = create<AppState>()(
       subscriptions: mockSubscriptions,
       notifications: mockNotifications,
       currentUser: null,
+
+      register: (userData) => {
+        const { users } = get();
+        const existingUser = users.find(u => u.email === userData.email);
+        if (existingUser) {
+          throw new Error('An account with this email already exists.');
+        }
+
+        const newUser: User = {
+          ...userData,
+          id: generateId(),
+          subrole: null, // Subrole can be assigned later if needed
+        };
+
+        set(state => ({
+          users: [...state.users, newUser],
+        }));
+      },
 
       login: (email, password, role, subrole = null) => {
         const user = get().users.find(

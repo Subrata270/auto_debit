@@ -1,6 +1,14 @@
 "use client"
+import Link from "next/link";
 import LoginForm from "@/app/components/auth/login-form";
 
 export default function FinanceLoginPage() {
-    return <LoginForm role="finance" title="Finance Portal" subRoleOptions={['apa', 'am']} />;
+    return (
+        <div className="flex flex-col gap-4">
+            <LoginForm role="finance" title="Finance Portal" subRoleOptions={['apa', 'am']} />
+            <div className="text-center text-sm">
+                Don't have an account? <Link href="/register" className="underline">Register</Link>
+            </div>
+        </div>
+    );
 }
