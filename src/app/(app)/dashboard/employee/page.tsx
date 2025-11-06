@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { format, formatDistanceToNow } from "date-fns";
-import { AlertCircle, Clock, FileText, Send } from "lucide-react";
+import { AlertTriangle, FileText, Bell } from "lucide-react";
 import RenewRequestDialog from "./renew-request-dialog";
 import { Button } from "@/components/ui/button";
 
@@ -14,14 +14,14 @@ const StatusBadge = ({ status }: { status: string }) => {
         status === 'Active' ? 'default' :
         status === 'Pending' ? 'secondary' :
         status === 'Declined' ? 'destructive' : 'outline';
-    const colorClass = 
-        status === 'Active' ? 'bg-green-500/20 text-green-700 border-green-400' :
-        status === 'Pending' ? 'bg-amber-500/20 text-amber-700 border-amber-400' :
-        status === 'Approved' ? 'bg-sky-500/20 text-sky-700 border-sky-400' :
-        status === 'Declined' ? 'bg-red-500/20 text-red-700 border-red-400' :
-        'bg-gray-500/20 text-gray-700 border-gray-400';
+    
+    let colorClass = 'bg-gray-200 text-gray-800';
+    if (status === 'Active') colorClass = 'bg-gradient-to-r from-green-400 to-emerald-500 text-white';
+    if (status === 'Pending' || status === 'Approved') colorClass = 'bg-gradient-to-r from-yellow-400 to-amber-500 text-white';
+    if (status === 'Expired' || status === 'Declined') colorClass = 'bg-gradient-to-r from-red-400 to-rose-500 text-white';
 
-    return <Badge variant="outline" className={`capitalize ${colorClass}`}>{status.toLowerCase()}</Badge>;
+
+    return <Badge className={`capitalize border-none ${colorClass}`}>{status.toLowerCase()}</Badge>;
 };
 
 export default function EmployeeDashboardPage() {
@@ -36,14 +36,14 @@ export default function EmployeeDashboardPage() {
     return (
         <div className="space-y-8">
             <header>
-                <h1 className="text-3xl font-bold">Welcome, {currentUser.name}!</h1>
-                <p className="text-muted-foreground">Here's an overview of your software subscriptions.</p>
+                <h1 className="text-3xl font-bold text-slate-800">Welcome to the Department of POC Dashboard!</h1>
+                <p className="text-slate-500">Manage your department's active subscriptions and renewal alerts efficiently.</p>
             </header>
 
             {renewalAlerts.length > 0 && (
-                 <Card className="bg-amber-50 border-amber-200">
+                 <Card className="rounded-2xl bg-gradient-to-br from-amber-50 to-orange-100 shadow-md transition-all duration-300 hover:-translate-y-1 hover:shadow-xl">
                     <CardHeader className="flex flex-row items-center gap-4">
-                        <AlertCircle className="h-6 w-6 text-amber-600"/>
+                        <Bell className="h-6 w-6 text-amber-600"/>
                         <CardTitle className="text-amber-800">Renewal Alerts</CardTitle>
                     </CardHeader>
                     <CardContent>
@@ -59,10 +59,9 @@ export default function EmployeeDashboardPage() {
                 </Card>
             )}
 
-            <Card>
+            <Card className="rounded-2xl shadow-lg">
                 <CardHeader>
-                    <CardTitle className="flex items-center gap-2"><FileText /> My Subscriptions</CardTitle>
-                    <CardDescription>All your active software subscriptions.</CardDescription>
+                    <CardTitle className="flex items-center gap-2 text-slate-800">📋 Department Subscriptions</CardTitle>
                 </CardHeader>
                 <CardContent>
                     <Table>
@@ -83,7 +82,7 @@ export default function EmployeeDashboardPage() {
                                     <TableCell>{sub.expiryDate ? formatDistanceToNow(new Date(sub.expiryDate), { addSuffix: true }) : 'N/A'}</TableCell>
                                     <TableCell><StatusBadge status={sub.status} /></TableCell>
                                     <TableCell className="text-right">
-                                      <RenewRequestDialog subscription={sub} trigger={<Button variant="ghost" size="sm">Renew</Button>} />
+                                      <RenewRequestDialog subscription={sub} trigger={<Button variant="ghost" size="sm" className="text-primary hover:bg-primary/10">Renew</Button>} />
                                     </TableCell>
                                 </TableRow>
                             )) : <TableRow><TableCell colSpan={5} className="text-center">No active subscriptions found.</TableCell></TableRow>}
@@ -92,9 +91,9 @@ export default function EmployeeDashboardPage() {
                 </CardContent>
             </Card>
 
-            <Card>
+            <Card className="rounded-2xl shadow-lg">
                 <CardHeader>
-                    <CardTitle className="flex items-center gap-2"><Send /> Pending Requests</CardTitle>
+                    <CardTitle className="flex items-center gap-2 text-slate-800"><FileText /> Pending Requests</CardTitle>
                     <CardDescription>Track the status of your new and renewal requests.</CardDescription>
                 </CardHeader>
                 <CardContent>

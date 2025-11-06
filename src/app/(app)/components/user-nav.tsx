@@ -39,7 +39,7 @@ export default function UserNav() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" className="relative h-9 w-9 rounded-full">
+        <Button variant="ghost" className="relative h-9 w-9 rounded-full transition-transform duration-200 hover:animate-pulse">
           <Avatar className="h-9 w-9">
             <AvatarImage src={`https://avatar.vercel.sh/${currentUser.id}.png`} alt={currentUser.name} />
             <AvatarFallback>{getInitials(currentUser.name)}</AvatarFallback>
