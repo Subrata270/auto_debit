@@ -5,8 +5,8 @@ import { useAppStore } from "@/store/app-store";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { format, formatDistanceToNow } from "date-fns";
-import { Bell, FileText, PlusCircle, CheckCircle, XCircle } from "lucide-react";
+import { format, formatDistanceToNow, differenceInCalendarDays } from "date-fns";
+import { Bell, FileText, PlusCircle, CheckCircle, XCircle, Info, History } from "lucide-react";
 import RenewRequestDialog from "./renew-request-dialog";
 import { Button } from "@/components/ui/button";
 import NewRequestDialog from "./new-request-dialog";
@@ -15,18 +15,13 @@ import { motion } from "framer-motion";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Subscription } from "@/lib/types";
 import DeclineInfoDialog from "../../components/decline-info-dialog";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 const StatusBadge = ({ status }: { status: string }) => {
-    const variant: "default" | "secondary" | "destructive" | "outline" =
-        status === 'Active' ? 'default' :
-        status === 'Pending' ? 'secondary' :
-        status === 'Declined' ? 'destructive' : 'outline';
-    
     let colorClass = 'bg-gray-200 text-gray-800';
     if (status === 'Active') colorClass = 'bg-gradient-to-r from-green-400 to-emerald-500 text-white';
     if (status === 'Pending' || status === 'Approved') colorClass = 'bg-gradient-to-r from-yellow-400 to-amber-500 text-white';
     if (status === 'Expired' || status === 'Declined') colorClass = 'bg-gradient-to-r from-red-400 to-rose-500 text-white';
-
 
     return <Badge className={`capitalize border-none ${colorClass}`}>{status.toLowerCase()}</Badge>;
 };
@@ -80,7 +75,15 @@ export default function DepartmentPOCDashboardPage() {
     const mySubscriptions = subscriptions.filter(s => s.requestedBy === currentUser.id);
     const activeSubscriptions = mySubscriptions.filter(s => s.status === 'Active');
     const pendingRequests = mySubscriptions.filter(s => s.status === 'Pending' || s.status === 'Approved');
-    const renewalAlerts = activeSubscriptions.filter(s => s.expiryDate && new Date(s.expiryDate) < new Date(Date.now() + 30 * 24 * 60 * 60 * 1000));
+
+    const today = new Date();
+    const renewalAlerts = activeSubscriptions.filter(sub => {
+        if (!sub.expiryDate) return false;
+        const expiryDate = new Date(sub.expiryDate);
+        const alertDays = sub.alertDays || 10;
+        const daysLeft = differenceInCalendarDays(expiryDate, today);
+        return daysLeft <= alertDays && daysLeft >= 0;
+    });
     
     const approvedHistory = mySubscriptions.filter(s => s.status === 'Active' || s.status === 'Expired' && s.approvedBy);
     const declinedHistory = mySubscriptions.filter(s => s.status === 'Declined');
@@ -98,6 +101,13 @@ export default function DepartmentPOCDashboardPage() {
         })
     };
 
+    const isRenewable = (sub: Subscription) => {
+        if (!sub.expiryDate) return false;
+        const expiry = new Date(sub.expiryDate);
+        const daysLeft = differenceInCalendarDays(expiry, today);
+        const alertDays = sub.alertDays || 10;
+        return daysLeft <= alertDays;
+    };
 
     return (
         <div className="space-y-6">
@@ -170,17 +180,65 @@ export default function DepartmentPOCDashboardPage() {
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {activeSubscriptions.length > 0 ? activeSubscriptions.map(sub => (
-                                    <TableRow key={sub.id}>
-                                        <TableCell className="font-medium">{sub.toolName}</TableCell>
-                                        <TableCell>${sub.cost.toFixed(2)}</TableCell>
-                                        <TableCell>{sub.expiryDate ? formatDistanceToNow(new Date(sub.expiryDate), { addSuffix: true }) : 'N/A'}</TableCell>
-                                        <TableCell><StatusBadge status={sub.status} /></TableCell>
-                                        <TableCell className="text-right">
-                                        <RenewRequestDialog subscription={sub} dialogTrigger={<Button variant="ghost" size="sm" className="text-primary hover:bg-primary/10">Renew</Button>} />
-                                        </TableCell>
-                                    </TableRow>
-                                )) : <TableRow><TableCell colSpan={5} className="text-center h-24">No active subscriptions found.</TableCell></TableRow>}
+                                {activeSubscriptions.length > 0 ? activeSubscriptions.map(sub => {
+                                    const renewable = isRenewable(sub);
+                                    const expiryText = sub.expiryDate ? formatDistanceToNow(new Date(sub.expiryDate), { addSuffix: true }) : 'N/A';
+                                    
+                                    const renewButton = (
+                                        <RenewRequestDialog 
+                                            subscription={sub} 
+                                            dialogTrigger={
+                                                <Button 
+                                                    variant="ghost" 
+                                                    size="sm"
+                                                    disabled={!renewable}
+                                                    className={renewable ? "text-primary hover:bg-primary/10" : "text-gray-400 cursor-not-allowed"}
+                                                >
+                                                    Renew
+                                                </Button>
+                                            } 
+                                        />
+                                    );
+
+                                    return (
+                                        <TableRow key={sub.id}>
+                                            <TableCell className="font-medium">{sub.toolName}</TableCell>
+                                            <TableCell>${sub.cost.toFixed(2)}</TableCell>
+                                            <TableCell>
+                                                <div className="flex items-center gap-1">
+                                                    {expiryText}
+                                                    <TooltipProvider>
+                                                        <Tooltip>
+                                                            <TooltipTrigger>
+                                                                <Info className="h-3 w-3 text-muted-foreground" />
+                                                            </TooltipTrigger>
+                                                            <TooltipContent>
+                                                                <p>Alert triggers {sub.alertDays || 10} days before expiry.</p>
+                                                            </TooltipContent>
+                                                        </Tooltip>
+                                                    </TooltipProvider>
+                                                </div>
+                                            </TableCell>
+                                            <TableCell><StatusBadge status={sub.status} /></TableCell>
+                                            <TableCell className="text-right">
+                                                {!renewable ? (
+                                                    <TooltipProvider>
+                                                        <Tooltip>
+                                                            <TooltipTrigger asChild>
+                                                                <span>{renewButton}</span>
+                                                            </TooltipTrigger>
+                                                            <TooltipContent>
+                                                                <p>Available {sub.alertDays || 10} days before expiry.</p>
+                                                            </TooltipContent>
+                                                        </Tooltip>
+                                                    </TooltipProvider>
+                                                ) : (
+                                                    renewButton
+                                                )}
+                                            </TableCell>
+                                        </TableRow>
+                                    );
+                                }) : <TableRow><TableCell colSpan={5} className="text-center h-24">No active subscriptions found.</TableCell></TableRow>}
                             </TableBody>
                         </Table>
                     </CardContent>
@@ -225,6 +283,40 @@ export default function DepartmentPOCDashboardPage() {
                     <HistoryCard title="Declined History" icon={<XCircle className="text-red-600"/>} data={declinedHistory} bgColor="bg-red-50/50" isDecline={true} />
                 </div>
             </motion.div>
+
+            <motion.div variants={cardVariants} initial="hidden" animate="visible" custom={5}>
+                <Card className="rounded-xl shadow-md">
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2 text-slate-800"><History /> Vendor History</CardTitle>
+                        <CardDescription>Log of renewal alerts and actions for your department's vendors.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <Table>
+                             <TableHeader>
+                                <TableRow>
+                                    <TableHead>Vendor</TableHead>
+                                    <TableHead>Tool</TableHead>
+                                    <TableHead>Renewal Alert (Days)</TableHead>
+                                    <TableHead>Last Alert Triggered</TableHead>
+                                    <TableHead>Renewed On</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {activeSubscriptions.length > 0 ? activeSubscriptions.map(sub => (
+                                    <TableRow key={sub.id}>
+                                        <TableCell>{sub.vendorName}</TableCell>
+                                        <TableCell>{sub.toolName}</TableCell>
+                                        <TableCell>{sub.alertDays || 10}</TableCell>
+                                        <TableCell>{isRenewable(sub) ? format(new Date(), 'PP') : 'Pending'}</TableCell>
+                                        <TableCell>{sub.status === 'Active' && sub.paymentDate ? format(new Date(sub.paymentDate), 'PP') : 'N/A'}</TableCell>
+                                    </TableRow>
+                                )) : <TableRow><TableCell colSpan={5} className="text-center h-24">No vendor history available.</TableCell></TableRow>}
+                            </TableBody>
+                        </Table>
+                    </CardContent>
+                </Card>
+            </motion.div>
+
         </div>
     );
 }

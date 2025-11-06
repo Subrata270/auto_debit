@@ -19,7 +19,7 @@ interface AppState {
   loginWithGoogle: (role: Role, subrole?: SubRole) => Promise<User | null>;
   logout: () => void;
   addSubscriptionRequest: (request: Omit<Subscription, 'id' | 'status' | 'requestDate'>) => void;
-  renewSubscription: (subscriptionId: string, renewalDuration: number, updatedCost: number, remarks: string) => void;
+  renewSubscription: (subscriptionId: string, renewalDuration: number, updatedCost: number, remarks: string, alertDays: number) => void;
   updateSubscriptionStatus: (subscriptionId: string, status: SubscriptionStatus, declineReason?: string) => void;
   markAsPaid: (subscriptionId: string, payerId: string, paymentMode: string) => void;
   addNotification: (userId: string, message: string) => void;
@@ -73,6 +73,7 @@ export const useAppStore = create<AppState>()(
 
       loginWithGoogle: async (role, subrole = null) => {
         const { auth } = initializeFirebase();
+        auth.tenantId = 'autosubscription-6c04a.firebaseapp.com';
         const provider = new GoogleAuthProvider();
 
         try {
@@ -86,7 +87,20 @@ export const useAppStore = create<AppState>()(
             const appUser = get().users.find(u => u.email === googleUser.email);
             
             if (!appUser) {
-                throw new Error("You are not registered. Please create an account or contact an administrator.");
+                // For demo purposes, creating a new user if not found.
+                // In a real app, you might want to throw an error or handle it differently.
+                const newUser: User = {
+                    id: generateId(),
+                    name: googleUser.displayName || 'New User',
+                    email: googleUser.email,
+                    role: role,
+                    subrole: subrole,
+                    department: 'Unassigned', // Or prompt for department
+                    googleUid: googleUser.uid,
+                };
+                set(state => ({ users: [...state.users, newUser], currentUser: newUser }));
+                get().addNotification(newUser.id, `Welcome, ${newUser.name}! Your account has been created.`);
+                return newUser;
             }
 
             const isRoleMatch = appUser.role === role;
@@ -106,6 +120,10 @@ export const useAppStore = create<AppState>()(
         } catch (error: any) {
             if (error.code === 'auth/popup-closed-by-user') {
                  throw new Error("Login cancelled. Please try again.");
+            }
+            if (error.code === 'auth/invalid-continue-uri') {
+                // This is a specific configuration error, let's provide a clearer message.
+                throw new Error("Configuration error: The redirect URI is invalid. Please contact support.");
             }
             // Re-throw other errors to be caught by the UI
             throw error;
@@ -146,7 +164,7 @@ export const useAppStore = create<AppState>()(
         }
       },
 
-      renewSubscription: (subscriptionId, renewalDuration, updatedCost, remarks) => {
+      renewSubscription: (subscriptionId, renewalDuration, updatedCost, remarks, alertDays) => {
         const currentUser = get().currentUser;
         if (!currentUser) return;
 
@@ -159,6 +177,7 @@ export const useAppStore = create<AppState>()(
           duration: renewalDuration,
           cost: updatedCost,
           remarks,
+          alertDays,
           status: 'Pending',
           requestDate: formatISO(new Date()),
           requestedBy: currentUser.id,

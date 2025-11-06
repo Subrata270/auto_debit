@@ -31,11 +31,12 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
-import { CalendarIcon, Upload } from 'lucide-react';
+import { CalendarIcon, Clock, Upload } from 'lucide-react';
 import { format, addMonths, differenceInCalendarMonths, isValid } from 'date-fns';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useState, useEffect, useMemo } from 'react';
 import { vendorToolMapping, pricingRules, USD_TO_INR_RATE } from '@/lib/pricing';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 const formSchema = z.object({
   vendorName: z.string().min(1, 'Vendor name is required.'),
@@ -50,6 +51,7 @@ const formSchema = z.object({
   justification: z.string().min(20, 'Justification must be at least 20 characters.'),
   department: z.string().min(1, 'Please select a department.'),
   departmentCustom: z.string().optional(),
+  alertDays: z.coerce.number().min(1).max(60).default(10),
 });
 
 interface NewRequestDialogProps {
@@ -75,6 +77,7 @@ export default function NewRequestDialog({ open, onOpenChange }: NewRequestDialo
       justification: '',
       department: currentUser?.department || '',
       departmentCustom: '',
+      alertDays: 10,
     },
   });
 
@@ -109,7 +112,9 @@ export default function NewRequestDialog({ open, onOpenChange }: NewRequestDialo
 
   // Update INR value when amount or currency changes
   useEffect(() => {
-    const costInUSD = getValues('currency') === 'INR' ? amount / USD_TO_INR_RATE : amount;
+    const currentAmount = getValues('amount');
+    const currentCurrency = getValues('currency');
+    const costInUSD = currentCurrency === 'INR' ? currentAmount / USD_TO_INR_RATE : currentAmount;
     const costInINR = costInUSD * USD_TO_INR_RATE;
 
     const formattedINR = new Intl.NumberFormat('en-IN', {
@@ -169,6 +174,7 @@ export default function NewRequestDialog({ open, onOpenChange }: NewRequestDialo
       department: finalDepartment!,
       requestedBy: currentUser.id,
       remarks: values.justification,
+      alertDays: values.alertDays,
     });
     toast({
         title: "Request Submitted!",
@@ -358,21 +364,46 @@ export default function NewRequestDialog({ open, onOpenChange }: NewRequestDialo
                         options={departmentOptions}
                     />
 
-                    <FormField
+                     <FormField
                         control={form.control}
-                        name="purpose"
+                        name="alertDays"
                         render={({ field }) => (
                             <FormItem>
-                                <FormLabel>Purpose</FormLabel>
-                                <FormControl>
-                                    <Input placeholder="e.g., For marketing campaign assets" {...field} />
-                                </FormControl>
+                                <FormLabel className="flex items-center gap-1">
+                                    <Clock className="h-4 w-4" />
+                                    Renewal Alert (Days Before Expiry)
+                                </FormLabel>
+                                <TooltipProvider>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <FormControl>
+                                            <Input type="number" min={1} max={60} {...field} />
+                                        </FormControl>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                        <p>Enter how many days before expiry the renewal alert should appear.</p>
+                                    </TooltipContent>
+                                </Tooltip>
+                                </TooltipProvider>
                                 <FormMessage />
                             </FormItem>
                         )}
                     />
 
                 </div>
+                 <FormField
+                    control={form.control}
+                    name="purpose"
+                    render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Purpose</FormLabel>
+                            <FormControl>
+                                <Input placeholder="e.g., For marketing campaign assets" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                        </FormItem>
+                    )}
+                />
                 
                 <div className="col-span-1 md:col-span-2">
                     <FormField

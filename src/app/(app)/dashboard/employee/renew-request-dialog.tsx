@@ -31,11 +31,12 @@ import { useState, useEffect, useMemo } from 'react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
-import { CalendarIcon, Upload } from 'lucide-react';
+import { CalendarIcon, Clock, Upload } from 'lucide-react';
 import { Calendar } from '@/components/ui/calendar';
 import { addMonths, differenceInCalendarMonths, format, isValid } from 'date-fns';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { pricingRules, USD_TO_INR_RATE } from '@/lib/pricing';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 const formSchema = z.object({
   vendorName: z.string().min(1, 'Vendor name is required.'),
@@ -48,6 +49,7 @@ const formSchema = z.object({
   department: z.string().min(1, 'Please select a department.'),
   purpose: z.string().min(1, "A brief purpose is required."),
   justification: z.string().min(20, 'Justification must be at least 20 characters.'),
+  alertDays: z.coerce.number().min(1).max(60).default(10),
 });
 
 interface RenewRequestDialogProps {
@@ -74,6 +76,7 @@ export default function RenewRequestDialog({ subscription, dialogTrigger }: Rene
       department: currentUser?.department || subscription.department,
       purpose: subscription.purpose,
       justification: '',
+      alertDays: subscription.alertDays || 10,
     },
   });
 
@@ -152,6 +155,7 @@ export default function RenewRequestDialog({ subscription, dialogTrigger }: Rene
         department: currentUser?.department || subscription.department,
         purpose: subscription.purpose,
         justification: '',
+        alertDays: subscription.alertDays || 10,
       });
     }
   }, [open, reset, subscription, currentUser]);
@@ -160,7 +164,7 @@ export default function RenewRequestDialog({ subscription, dialogTrigger }: Rene
   const onSubmit = (values: z.infer<typeof formSchema>) => {
     const durationInMonths = differenceInCalendarMonths(values.endDate, values.startDate) || 1;
     
-    renewSubscription(subscription.id, durationInMonths, values.amount, values.justification);
+    renewSubscription(subscription.id, durationInMonths, values.amount, values.justification, values.alertDays);
     toast({
         title: "Renewal Request Submitted!",
         description: `Your renewal request for ${subscription.toolName} is pending approval.`,
@@ -361,18 +365,44 @@ export default function RenewRequestDialog({ subscription, dialogTrigger }: Rene
                     
                     <FormField
                         control={form.control}
-                        name="purpose"
+                        name="alertDays"
                         render={({ field }) => (
                             <FormItem>
-                                <FormLabel>Purpose</FormLabel>
-                                <FormControl>
-                                    <Input placeholder="e.g., For marketing campaign assets" {...field} />
-                                </FormControl>
+                                <FormLabel className="flex items-center gap-1">
+                                    <Clock className="h-4 w-4" />
+                                    Renewal Alert (Days Before Expiry)
+                                </FormLabel>
+                                <TooltipProvider>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <FormControl>
+                                            <Input type="number" min={1} max={60} {...field} />
+                                        </FormControl>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                        <p>Enter how many days before expiry the renewal alert should appear.</p>
+                                    </TooltipContent>
+                                </Tooltip>
+                                </TooltipProvider>
                                 <FormMessage />
                             </FormItem>
                         )}
                     />
                 </div>
+
+                 <FormField
+                    control={form.control}
+                    name="purpose"
+                    render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Purpose</FormLabel>
+                            <FormControl>
+                                <Input placeholder="e.g., For marketing campaign assets" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                        </FormItem>
+                    )}
+                />
                 
                 <div className="col-span-1 md:col-span-2">
                     <FormField

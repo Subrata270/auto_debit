@@ -33,6 +33,7 @@ export interface Subscription {
   approvalDate?: string;
   paidBy?: string; // Finance user's userId
   paymentDate?: string;
+  alertDays?: number;
 }
 
 export interface AppNotification {
