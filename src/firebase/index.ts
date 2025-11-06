@@ -7,13 +7,16 @@ import { getFirestore } from 'firebase/firestore'
 
 // IMPORTANT: DO NOT MODIFY THIS FUNCTION
 export function initializeFirebase() {
-  if (!getApps().length) {
-    const firebaseApp = initializeApp(firebaseConfig);
-    return getSdks(firebaseApp);
-  }
+  const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
+  const auth = getAuth(app);
+  // This line is critical for fixing the auth/invalid-continue-uri error in this specific environment.
+  auth.tenantId = firebaseConfig.authDomain;
 
-  // If already initialized, return the SDKs with the already initialized App
-  return getSdks(getApp());
+  return {
+    firebaseApp: app,
+    auth: auth,
+    firestore: getFirestore(app)
+  };
 }
 
 export function getSdks(FirebaseApp) {
