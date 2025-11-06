@@ -1,61 +1,5 @@
 {
   "entities": {
-    "User": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "User",
-      "type": "object",
-      "description": "Represents a user in the Auto-Debit Tracker system.",
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the user entity."
-        },
-        "googleUid": {
-          "type": "string",
-          "description": "The unique user ID provided by Google upon authentication."
-        },
-        "name": {
-          "type": "string",
-          "description": "The user's full name."
-        },
-        "email": {
-          "type": "string",
-          "description": "The user's email address.",
-          "format": "email"
-        },
-        "role": {
-          "type": "string",
-          "description": "The user's role within the system (employee, hod, finance, admin)."
-        },
-        "subrole": {
-          "type": "string",
-          "description": "The user's subrole within the finance department (APA or AM). Nullable for other roles."
-        },
-        "portal": {
-          "type": "string",
-          "description": "The portal the user is assigned to (employee, hod, finance, admin)."
-        },
-        "active": {
-          "type": "boolean",
-          "description": "Indicates whether the user account is active."
-        },
-        "createdAt": {
-          "type": "string",
-          "description": "Timestamp of when the user account was created.",
-          "format": "date-time"
-        }
-      },
-      "required": [
-        "id",
-        "googleUid",
-        "name",
-        "email",
-        "role",
-        "portal",
-        "active",
-        "createdAt"
-      ]
-    },
     "SubscriptionRequest": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "SubscriptionRequest",
@@ -66,17 +10,17 @@
           "type": "string",
           "description": "Unique identifier for the subscription request."
         },
-        "userId": {
+        "employeeId": {
           "type": "string",
-          "description": "Reference to User. (Relationship: User 1:N SubscriptionRequest)"
+          "description": "Reference to the Employee who created the request. (Relationship: Employee 1:N SubscriptionRequest)"
         },
         "toolName": {
           "type": "string",
-          "description": "Name of the software tool being requested (e.g., ChatGPT, Canva)."
+          "description": "Name of the software tool requested (e.g., ChatGPT, Canva)."
         },
         "durationMonths": {
           "type": "number",
-          "description": "Duration of the subscription in months."
+          "description": "Subscription duration in months."
         },
         "cost": {
           "type": "number",
@@ -88,33 +32,38 @@
         },
         "purpose": {
           "type": "string",
-          "description": "Purpose of the subscription request."
+          "description": "Purpose of the subscription."
         },
         "invoiceUrl": {
           "type": "string",
-          "description": "URL of the uploaded invoice or quotation (optional).",
+          "description": "URL to the uploaded invoice or quotation. Optional.",
           "format": "uri"
-        },
-        "status": {
-          "type": "string",
-          "description": "Status of the subscription request (e.g., pending, approved, declined)."
         },
         "requestDate": {
           "type": "string",
-          "description": "Date when the subscription request was made.",
+          "description": "Date when the subscription request was created.",
           "format": "date-time"
+        },
+        "status": {
+          "type": "string",
+          "description": "Status of the request (e.g., Pending, Approved, Declined).",
+          "format": "string"
+        },
+        "hodApprovalId": {
+          "type": "string",
+          "description": "Reference to the HOD Approval record. (Relationship: HodApproval 1:1 SubscriptionRequest)"
         }
       },
       "required": [
         "id",
-        "userId",
+        "employeeId",
         "toolName",
         "durationMonths",
         "cost",
         "department",
         "purpose",
-        "status",
-        "requestDate"
+        "requestDate",
+        "status"
       ]
     },
     "RenewalRequest": {
@@ -127,80 +76,171 @@
           "type": "string",
           "description": "Unique identifier for the renewal request."
         },
-        "subscriptionRequestId": {
+        "subscriptionId": {
           "type": "string",
-          "description": "Reference to SubscriptionRequest. (Relationship: SubscriptionRequest 1:N RenewalRequest)"
+          "description": "Reference to the Subscription being renewed. (Relationship: Subscription 1:N RenewalRequest)"
         },
         "renewalDuration": {
           "type": "number",
-          "description": "Duration of the renewal in months."
+          "description": "Renewal duration in months."
         },
         "updatedCost": {
           "type": "number",
-          "description": "Updated cost of the subscription for the renewal period."
+          "description": "Updated cost for the renewal."
         },
         "remarks": {
           "type": "string",
-          "description": "Optional remarks or notes regarding the renewal."
-        },
-        "status": {
-          "type": "string",
-          "description": "Status of the renewal request (e.g., pending, approved, declined)."
+          "description": "Optional remarks for the renewal request."
         },
         "requestDate": {
           "type": "string",
-          "description": "Date when the renewal request was made.",
+          "description": "Date when the renewal request was created.",
           "format": "date-time"
+        },
+        "status": {
+          "type": "string",
+          "description": "Status of the renewal request (e.g., Pending, Approved, Declined)."
+        },
+        "hodApprovalId": {
+          "type": "string",
+          "description": "Reference to the HOD Approval record. (Relationship: HodApproval 1:1 RenewalRequest)"
         }
       },
       "required": [
         "id",
-        "subscriptionRequestId",
+        "subscriptionId",
         "renewalDuration",
         "updatedCost",
-        "status",
-        "requestDate"
+        "requestDate",
+        "status"
       ]
     },
-    "Payment": {
+    "HodApproval": {
       "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "Payment",
+      "title": "HodApproval",
       "type": "object",
-      "description": "Represents a payment made for a subscription or renewal.",
+      "description": "Represents the Head of Department's (HOD) approval for a subscription or renewal request.",
       "properties": {
         "id": {
           "type": "string",
-          "description": "Unique identifier for the payment."
+          "description": "Unique identifier for the HOD approval."
         },
-        "subscriptionRequestId": {
+        "hodId": {
           "type": "string",
-          "description": "Reference to SubscriptionRequest. (Relationship: SubscriptionRequest 1:N Payment)"
+          "description": "Reference to the HOD user who approved the request. (Relationship: User 1:N HodApproval)"
         },
-        "amount": {
-          "type": "number",
-          "description": "Amount paid for the subscription."
+        "approvalDate": {
+          "type": "string",
+          "description": "Date when the HOD approved or declined the request.",
+          "format": "date-time"
+        },
+        "status": {
+          "type": "string",
+          "description": "Status of the approval (Approved or Declined)."
+        },
+        "comments": {
+          "type": "string",
+          "description": "Comments or reason for approval/decline."
+        }
+      },
+      "required": [
+        "id",
+        "hodId",
+        "approvalDate",
+        "status"
+      ]
+    },
+    "FinancePayment": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "FinancePayment",
+      "type": "object",
+      "description": "Represents a payment record made by the Finance department for a subscription.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the payment record."
+        },
+        "subscriptionId": {
+          "type": "string",
+          "description": "Reference to the Subscription for which the payment was made. (Relationship: Subscription 1:N FinancePayment)"
         },
         "paymentDate": {
           "type": "string",
           "description": "Date when the payment was made.",
           "format": "date-time"
         },
+        "amount": {
+          "type": "number",
+          "description": "Amount paid for the subscription."
+        },
         "modeOfPayment": {
           "type": "string",
-          "description": "Mode of payment (e.g., Card, UPI, NetBanking)."
+          "description": "Mode of payment used (e.g., Card, UPI, NetBanking)."
         },
         "financeUserId": {
           "type": "string",
-          "description": "Reference to User (Finance Portal). (Relationship: User 1:N Payment)"
+          "description": "Reference to the Finance User who processed the payment. (Relationship: User 1:N FinancePayment)"
         }
       },
       "required": [
         "id",
-        "subscriptionRequestId",
-        "amount",
+        "subscriptionId",
         "paymentDate",
+        "amount",
         "modeOfPayment",
         "financeUserId"
+      ]
+    },
+    "Subscription": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Subscription",
+      "type": "object",
+      "description": "Represents an active software subscription.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the subscription."
+        },
+        "toolName": {
+          "type": "string",
+          "description": "Name of the software tool subscribed to."
+        },
+        "startDate": {
+          "type": "string",
+          "description": "Start date of the subscription.",
+          "format": "date-time"
+        },
+        "endDate": {
+          "type": "string",
+          "description": "End date of the subscription.",
+          "format": "date-time"
+        },
+        "cost": {
+          "type": "number",
+          "description": "Cost of the subscription."
+        },
+        "department": {
+          "type": "string",
+          "description": "Department using the subscription."
+        },
+        "employeeId": {
+          "type": "string",
+          "description": "Reference to the Employee who requested the subscription. (Relationship: Employee 1:N Subscription)"
+        },
+        "status": {
+          "type": "string",
+          "description": "Status of the subscription (e.g., Active, Expired)."
+        }
+      },
+      "required": [
+        "id",
+        "toolName",
+        "startDate",
+        "endDate",
+        "cost",
+        "department",
+        "employeeId",
+        "status"
       ]
     },
     "Notification": {
@@ -215,48 +255,91 @@
         },
         "userId": {
           "type": "string",
-          "description": "Reference to User. (Relationship: User 1:N Notification)"
+          "description": "Reference to the User receiving the notification. (Relationship: User 1:N Notification)"
         },
         "message": {
           "type": "string",
-          "description": "The content of the notification."
+          "description": "Content of the notification."
+        },
+        "notificationDate": {
+          "type": "string",
+          "description": "Date and time when the notification was sent.",
+          "format": "date-time"
         },
         "type": {
           "type": "string",
-          "description": "Type of notification (e.g., renewal alert, approval, payment confirmation)."
-        },
-        "sentAt": {
-          "type": "string",
-          "description": "Timestamp of when the notification was sent.",
-          "format": "date-time"
-        },
-        "isRead": {
-          "type": "boolean",
-          "description": "Indicates whether the notification has been read by the user."
+          "description": "Type of notification (e.g., Renewal Alert, Approval, Payment Confirmation)."
         },
         "severity": {
           "type": "string",
-          "description": "Severity level of the notification."
+          "description": "Severity level of the alert, examples could be: 'Critical', 'High', 'Medium', 'Low'"
         },
         "channel": {
           "type": "string",
-          "description": "The channel the notification was sent by."
+          "description": "Channel by which alert is delivered, examples: 'Email', 'Dashboard', 'SMS'"
+        },
+        "isRead": {
+          "type": "boolean",
+          "description": "Indicates if the notification has been read by the user."
         }
       },
       "required": [
         "id",
         "userId",
         "message",
+        "notificationDate",
         "type",
-        "sentAt",
         "isRead"
+      ]
+    },
+    "User": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "User",
+      "type": "object",
+      "description": "Represents a user of the system.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the user."
+        },
+        "name": {
+          "type": "string",
+          "description": "Full name of the user."
+        },
+        "email": {
+          "type": "string",
+          "description": "Email address of the user.",
+          "format": "email"
+        },
+        "role": {
+          "type": "string",
+          "description": "Role of the user (e.g., Employee, HOD, Finance, Admin)."
+        },
+        "subrole": {
+          "type": "string",
+          "description": "Subrole of the user (e.g. APA, AM). Applicable to Finance users only."
+        },
+        "department": {
+          "type": "string",
+          "description": "Department of the user."
+        },
+        "googleUid": {
+          "type": "string",
+          "description": "Unique identifier from Google Authentication, if the user logged in with Google."
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "email",
+        "role"
       ]
     },
     "ActivityLog": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "ActivityLog",
       "type": "object",
-      "description": "Represents a log of activity within the system.",
+      "description": "Represents a log entry for user activity within the system.",
       "properties": {
         "id": {
           "type": "string",
@@ -264,28 +347,27 @@
         },
         "userId": {
           "type": "string",
-          "description": "Reference to User. (Relationship: User 1:N ActivityLog)"
-        },
-        "activityType": {
-          "type": "string",
-          "description": "Type of activity (e.g., login, subscription request, payment approval)."
-        },
-        "description": {
-          "type": "string",
-          "description": "Detailed description of the activity."
+          "description": "Reference to the User who performed the activity. (Relationship: User 1:N ActivityLog)"
         },
         "timestamp": {
           "type": "string",
-          "description": "Timestamp of when the activity occurred.",
+          "description": "Date and time when the activity occurred.",
           "format": "date-time"
+        },
+        "action": {
+          "type": "string",
+          "description": "Description of the action performed (e.g., 'Login', 'Subscription Requested', 'Payment Approved')."
+        },
+        "details": {
+          "type": "string",
+          "description": "Additional details about the activity (e.g., subscription ID, payment amount)."
         }
       },
       "required": [
         "id",
         "userId",
-        "activityType",
-        "description",
-        "timestamp"
+        "timestamp",
+        "action"
       ]
     }
   },
@@ -304,11 +386,11 @@
           "schema": {
             "$ref": "#/backend/entities/User"
           },
-          "description": "Stores user profiles, including Google UID, name, email, role, portal, active status, and creation timestamp.  Used for authentication and authorization. The 'userId' parameter is the document ID and matches the user's Firebase Authentication UID.",
+          "description": "Stores user information, including role and potentially denormalized organization data for authorization independence. The `id` field matches the Firebase Auth UID. Includes 'googleUid' field if the user logged in with Google.",
           "params": [
             {
               "name": "userId",
-              "description": "The unique Firebase Authentication UID of the user."
+              "description": "The unique identifier for the user, matching the Firebase Auth UID."
             }
           ]
         }
@@ -320,11 +402,11 @@
           "schema": {
             "$ref": "#/backend/entities/SubscriptionRequest"
           },
-          "description": "Stores subscription requests made by users. Includes denormalized 'userId' for authorization independence.",
+          "description": "Stores subscription requests made by users. Path-based ownership enforced via the `userId` parameter. Includes denormalized data (if required) from the parent user document.",
           "params": [
             {
               "name": "userId",
-              "description": "The unique Firebase Authentication UID of the user."
+              "description": "The unique identifier of the user who created the subscription request."
             },
             {
               "name": "subscriptionRequestId",
@@ -334,41 +416,21 @@
         }
       },
       {
-        "path": "/subscriptionRequests/{subscriptionRequestId}/renewalRequests/{renewalRequestId}",
+        "path": "/users/{userId}/subscriptions/{subscriptionId}",
         "definition": {
-          "entityName": "RenewalRequest",
+          "entityName": "Subscription",
           "schema": {
-            "$ref": "#/backend/entities/RenewalRequest"
+            "$ref": "#/backend/entities/Subscription"
           },
-          "description": "Stores renewal requests for specific subscriptions. Includes denormalized 'subscriptionRequestId' for authorization independence.",
+          "description": "Stores active subscriptions owned by the user. Path-based ownership enforced via the `userId` parameter.",
           "params": [
             {
-              "name": "subscriptionRequestId",
-              "description": "The unique identifier for the subscription request."
+              "name": "userId",
+              "description": "The unique identifier of the user who owns the subscription."
             },
             {
-              "name": "renewalRequestId",
-              "description": "The unique identifier for the renewal request."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/subscriptionRequests/{subscriptionRequestId}/payments/{paymentId}",
-        "definition": {
-          "entityName": "Payment",
-          "schema": {
-            "$ref": "#/backend/entities/Payment"
-          },
-          "description": "Stores payment records related to specific subscriptions. Includes denormalized 'subscriptionRequestId' for authorization independence.",
-          "params": [
-            {
-              "name": "subscriptionRequestId",
-              "description": "The unique identifier for the subscription request."
-            },
-            {
-              "name": "paymentId",
-              "description": "The unique identifier for the payment."
+              "name": "subscriptionId",
+              "description": "The unique identifier for the subscription."
             }
           ]
         }
@@ -380,15 +442,67 @@
           "schema": {
             "$ref": "#/backend/entities/Notification"
           },
-          "description": "Stores notifications specific to each user.",
+          "description": "Stores notifications for individual users. Path-based ownership enforced via the `userId` parameter.",
           "params": [
             {
               "name": "userId",
-              "description": "The unique Firebase Authentication UID of the user."
+              "description": "The unique identifier of the user who receives the notification."
             },
             {
               "name": "notificationId",
               "description": "The unique identifier for the notification."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/subscriptions/{subscriptionId}/renewalRequests/{renewalRequestId}",
+        "definition": {
+          "entityName": "RenewalRequest",
+          "schema": {
+            "$ref": "#/backend/entities/RenewalRequest"
+          },
+          "description": "Stores renewal requests for existing subscriptions.  Does not enforce path-based ownership, as ownership is implicit on the subscription. The subscription references the user.",
+          "params": [
+            {
+              "name": "subscriptionId",
+              "description": "The unique identifier for the parent subscription."
+            },
+            {
+              "name": "renewalRequestId",
+              "description": "The unique identifier for the renewal request."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/hodApprovals/{hodApprovalId}",
+        "definition": {
+          "entityName": "HodApproval",
+          "schema": {
+            "$ref": "#/backend/entities/HodApproval"
+          },
+          "description": "Stores HOD approval records. Collection-level access controlled by admin roles.",
+          "params": [
+            {
+              "name": "hodApprovalId",
+              "description": "The unique identifier for the HOD approval."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/financePayments/{financePaymentId}",
+        "definition": {
+          "entityName": "FinancePayment",
+          "schema": {
+            "$ref": "#/backend/entities/FinancePayment"
+          },
+          "description": "Stores finance payment records. Collection-level access controlled by finance roles.",
+          "params": [
+            {
+              "name": "financePaymentId",
+              "description": "The unique identifier for the finance payment."
             }
           ]
         }
@@ -400,7 +514,7 @@
           "schema": {
             "$ref": "#/backend/entities/ActivityLog"
           },
-          "description": "Stores activity logs across the entire system.",
+          "description": "Stores activity logs. Collection-level access controlled by admin roles.",
           "params": [
             {
               "name": "activityLogId",
@@ -410,6 +524,6 @@
         }
       }
     ],
-    "reasoning": "The Firestore structure is designed to ensure Authorization Independence, support the required QAPs, and maintain data clarity for the \"Auto-Debit Tracker Portal System\". The core principle is to avoid `get()` calls in security rules by denormalizing authorization data and segregating data based on access requirements.\n\n**Authorization Independence (CRITICAL):**  User roles and portal assignments are stored directly within the `users` collection, enabling role-based authentication without needing to fetch related data from other collections. Denormalization is applied to the `SubscriptionRequest` collection by copying the `userId` field, which allows direct ownership-based queries without needing to `get()` the user document.  Similarly, `subscriptionRequestId` is present in both `RenewalRequest` and `Payment` documents to avoid authorization lookups.\n\n**Clarity of Intent (Debuggability):** The structure uses explicit field names (e.g., `role`, `portal`, `userId`, `subscriptionRequestId`) to clearly define the purpose of each field and its role in authorization and data relationships.\n\n**DBAC (No Custom Claims):** User roles are stored in the `users` collection and accessed via `request.auth.uid` in the security rules, eliminating the need for custom claims.\n\n**QAPs (Rules are not Filters):**  The structure supports secure `list` operations by segregating data based on ownership and role. For example, an employee can `list` their own `SubscriptionRequest` documents under `/users/{userId}/subscriptionRequests`. Role-based access to `RenewalRequest` and `Payment` collections is also secured by leveraging the `subscriptionRequestId` field.\n\n**Invariants:**  The structure supports data integrity by using path-based ownership (`/users/{userId}/...`) and explicit timestamps (`createdAt`, `requestDate`, `paymentDate`) to enforce ownership, track creation times, and maintain data consistency.\n\n\n**Data Segregation:**\n\n*   `/users`: Stores user profiles, roles, portal assignments, and authentication data.\n*   `/users/{userId}/subscriptionRequests`: Stores subscription requests made by individual users.\n*   `/subscriptionRequests/{subscriptionRequestId}/renewalRequests`: Stores renewal requests for specific subscriptions.\n*   `/subscriptionRequests/{subscriptionRequestId}/payments`: Stores payment records related to specific subscriptions.\n*   `/users/{userId}/notifications`: Stores notifications specific to each user.\n*   `/activityLogs`: Stores activity logs across the entire system.\n\nThis structure promotes a secure, scalable, and maintainable Firestore design for the Auto-Debit Tracker Portal System."
+    "reasoning": "The Firestore structure is designed to provide a secure, scalable, and easily debuggable system for managing software subscriptions. It prioritizes authorization independence through denormalization, ensuring that security rules do not rely on hierarchical `get()` calls. This allows for atomic operations and easier debugging. Structural segregation is used to maintain homogeneous security postures within collections, and access modeling follows consistent patterns for private and collaborative data.\n\n**Authorization Independence via Denormalization:** The `users` collection includes a `googleUid` field. While this field itself isn't authorization data, it *enables* authorization independence. When a user logs in with Google, the client application will perform a read operation against the `/users/{uid}` document where `uid` is `request.auth.uid` to verify the role. We are not using `get()` in rules, which is the goal of authorization independence. While not directly related to a parent document, the `users` collection *could* denormalize team or organization data, if needed, without violating the Authorization Independence principle.\n\n**Structural Segregation:** The system uses structural segregation to separate user data based on roles. This means that different user types (Employee, HOD, Finance, Admin) have separate sections in the database, which simplifies security rules and access control. For example, subscription requests created by employees are stored under `/users/{employeeId}/subscriptionRequests/{subscriptionRequestId}`. Each collection maintains a consistent security posture, and there's no need to mix data with varying access requirements in the same collection.\n\n**Access Modeling:** The database uses path-based ownership for private data, such as subscription requests owned by an employee (`/users/{userId}/subscriptionRequests/{subscriptionRequestId}`). Collaborative data uses membership maps when needed (not explicitly modeled here, but applicable if subscriptions were shared). Global roles are stored in the `users` collection using the `role` field, enabling role-based access control. The system standardizes authorization fields (e.g., `employeeId` for ownership) and uses descriptive wildcards (`{subscriptionRequestId}`) to improve clarity.\n\n**QAPs Support:**\n*   **Secure List Operations:** Path-based ownership (`/users/{userId}/subscriptionRequests`) allows secure list operations because rules can easily enforce that only the owner (or authorized roles) can list documents.\n\n*   **Role-Based Access Control:** Access is controlled via the user's `role` field in the `/users` collection. Each portal verifies this role on login. If the user has access, they are provided with a JWT that allows access to data based on the security rules. This also applies to subroles for finance users.\n\nThe structure supports the integrity of ownership, timestamps, and denormalized data through clear naming conventions, explicit state modeling with a `status` field, and predictable schema. For example, each subscription request includes the `employeeId`, linking it to the user who created it. Timestamps like `requestDate` provide a clear audit trail, and the `status` field explicitly models the state of the request."
   }
 }
