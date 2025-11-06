@@ -5,7 +5,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useAppStore } from '@/store/app-store';
-import { departmentOptions, toolOptions, categoryOptions } from '@/lib/types';
+import { departmentOptions } from '@/lib/types';
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -31,33 +31,31 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
-import { CalendarIcon } from 'lucide-react';
-import { format } from 'date-fns';
+import { CalendarIcon, Upload } from 'lucide-react';
+import { format, addMonths, differenceInCalendarMonths, isValid } from 'date-fns';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
+import { vendorToolMapping, pricingRules, USD_TO_INR_RATE } from '@/lib/pricing';
 
 const formSchema = z.object({
+  vendorName: z.string().min(1, 'Vendor name is required.'),
   toolName: z.string().min(1, 'Please select a tool.'),
   toolNameCustom: z.string().optional(),
-  vendorName: z.string().min(1, 'Vendor name is required.'),
-  amount: z.coerce.number().min(0.01, 'Amount must be greater than 0.'),
-  currency: z.enum(['USD', 'INR']),
   frequency: z.enum(['Monthly', 'Quarterly', 'Yearly', 'One-time']),
+  amount: z.coerce.number().min(0, 'Amount must be a positive number.'),
+  currency: z.enum(['USD', 'INR']),
   startDate: z.date({ required_error: "A start date is required."}),
   endDate: z.date({ required_error: "An end date is required."}),
-  category: z.string().min(1, 'Please select a category.'),
+  poc: z.string().min(1, 'Person of contact is required.'),
+  purpose: z.string().min(20, 'Purpose must be at least 20 characters.'),
   department: z.string().min(1, 'Please select a department.'),
   departmentCustom: z.string().optional(),
-  poc: z.string().min(1, 'Person of contact is required.'),
-  purpose: z.string().min(10, 'Purpose must be at least 10 characters.'),
 });
 
 interface NewRequestDialogProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
 }
-
-const USD_TO_INR_RATE = 83;
 
 export default function NewRequestDialog({ open, onOpenChange }: NewRequestDialogProps) {
   const { currentUser, addSubscriptionRequest } = useAppStore();
@@ -67,50 +65,95 @@ export default function NewRequestDialog({ open, onOpenChange }: NewRequestDialo
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
+      vendorName: '',
       toolName: '',
       toolNameCustom: '',
-      vendorName: '',
+      frequency: 'Monthly',
       amount: 0,
       currency: 'USD',
-      frequency: 'Monthly',
-      category: '',
-      department: currentUser?.department || '',
-      departmentCustom: '',
       poc: currentUser?.email || '',
       purpose: '',
+      department: currentUser?.department || '',
+      departmentCustom: '',
     },
   });
 
-  const amount = form.watch('amount');
-  const currency = form.watch('currency');
+  const { watch, setValue, getValues, trigger } = form;
 
+  const vendorName = watch('vendorName');
+  const toolName = watch('toolName');
+  const frequency = watch('frequency');
+  const amount = watch('amount');
+  const currency = watch('currency');
+  const startDate = watch('startDate');
+
+  const availableTools = useMemo(() => {
+    return vendorToolMapping[vendorName] || [];
+  }, [vendorName]);
+
+  // Auto-populate amount based on vendor, tool, and frequency
   useEffect(() => {
-    let newInrValue = 0;
-    if (currency === 'USD') {
-        newInrValue = amount * USD_TO_INR_RATE;
-    } else { // currency is INR
-        newInrValue = amount;
+    if (vendorName && toolName && frequency) {
+      const toolPricing = pricingRules[toolName];
+      if (toolPricing) {
+        const multipliers = { Monthly: 1, Quarterly: 3, Yearly: 12, 'One-time': 1 };
+        const newAmount = toolPricing * multipliers[frequency];
+        setValue('amount', newAmount);
+        trigger('amount');
+      } else {
+        setValue('amount', 0); // Default to 0 if no pricing rule exists (e.g., custom tool)
+      }
     }
-    setInrValue(newInrValue.toFixed(2));
+  }, [vendorName, toolName, frequency, setValue, trigger]);
+
+  // Update INR value when amount or currency changes
+  useEffect(() => {
+    const cost = currency === 'USD' ? amount * USD_TO_INR_RATE : amount;
+    setInrValue(cost.toFixed(2));
   }, [amount, currency]);
+
+  // Update End Date when Start Date or Frequency changes
+  useEffect(() => {
+    if (isValid(startDate) && frequency) {
+      const multipliers = { Monthly: 1, Quarterly: 3, Yearly: 12, 'One-time': 1 };
+      const durationInMonths = multipliers[frequency];
+      const newEndDate = addMonths(startDate, durationInMonths);
+      setValue('endDate', newEndDate);
+    }
+  }, [startDate, frequency, setValue]);
+  
+  const calculatedDuration = useMemo(() => {
+    if (isValid(getValues('startDate')) && isValid(getValues('endDate'))) {
+      const months = differenceInCalendarMonths(getValues('endDate'), getValues('startDate'));
+      if (months === 0) return "1 month (One-time)";
+      if (months === 1) return "1 month";
+      if (months === 3) return "3 months";
+      if (months === 12) return "12 months";
+      return `${months} months`;
+    }
+    return '';
+  }, [watch('startDate'), watch('endDate')]);
+
 
   const onSubmit = (values: z.infer<typeof formSchema>) => {
     if (!currentUser) return;
     
     const costInUSD = values.currency === 'INR' ? values.amount / USD_TO_INR_RATE : values.amount;
+    const finalToolName = values.toolName === 'custom' ? values.toolNameCustom : values.toolName;
+    const finalDepartment = getValues('department') === 'add-custom' ? getValues('departmentCustom') : getValues('department');
 
     addSubscriptionRequest({
-      toolName: values.toolNameCustom || values.toolName,
-      duration: 1, // This can be calculated from start/end date if needed
+      toolName: finalToolName!,
+      duration: 1, // This can be derived from start/end date if needed
       cost: costInUSD,
       purpose: values.purpose,
-      department: values.departmentCustom || values.department,
+      department: finalDepartment!,
       requestedBy: currentUser.id,
-      // Pass other new values if needed in addSubscriptionRequest
+      vendorName: values.vendorName,
     });
     toast({
         title: "Request Submitted!",
-        description: `Your request for ${values.toolNameCustom || values.toolName} is now pending approval.`,
+        description: `Your request for ${finalToolName} is now pending approval.`,
     })
     form.reset();
     onOpenChange(false);
@@ -133,14 +176,6 @@ export default function NewRequestDialog({ open, onOpenChange }: NewRequestDialo
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 py-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-6">
                     
-                    <CustomSelect
-                        form={form}
-                        name="toolName"
-                        label="Tool Name"
-                        placeholder="Select a tool"
-                        options={toolOptions}
-                    />
-
                     <FormField
                         control={form.control}
                         name="vendorName"
@@ -150,6 +185,38 @@ export default function NewRequestDialog({ open, onOpenChange }: NewRequestDialo
                                 <FormControl>
                                     <Input placeholder="e.g., Adobe Inc." {...field} />
                                 </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+
+                    <CustomSelect
+                        form={form}
+                        name="toolName"
+                        label="Tool Name"
+                        placeholder="Select a tool"
+                        options={availableTools}
+                    />
+
+                    <FormField
+                        control={form.control}
+                        name="frequency"
+                        render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Frequency</FormLabel>
+                                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                    <FormControl>
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Select frequency" />
+                                        </SelectTrigger>
+                                    </FormControl>
+                                    <SelectContent>
+                                        <SelectItem value="Monthly">Monthly</SelectItem>
+                                        <SelectItem value="Quarterly">Quarterly</SelectItem>
+                                        <SelectItem value="Yearly">Yearly</SelectItem>
+                                        <SelectItem value="One-time">One-time</SelectItem>
+                                    </SelectContent>
+                                </Select>
                                 <FormMessage />
                             </FormItem>
                         )}
@@ -165,9 +232,9 @@ export default function NewRequestDialog({ open, onOpenChange }: NewRequestDialo
                                     <FormControl>
                                         <div className="relative">
                                             <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-muted-foreground">
-                                                {form.getValues('currency') === 'USD' ? '$' : '₹'}
+                                                {getValues('currency') === 'USD' ? '$' : '₹'}
                                             </span>
-                                            <Input type="number" {...field} className="pl-7" />
+                                            <Input type="number" step="0.01" {...field} className="pl-7" />
                                         </div>
                                     </FormControl>
                                     <FormMessage />
@@ -199,137 +266,71 @@ export default function NewRequestDialog({ open, onOpenChange }: NewRequestDialo
                         <FormLabel>Equivalent In</FormLabel>
                         <div className="relative">
                             <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-muted-foreground">
-                                {form.getValues('currency') === 'USD' ? '₹' : '$'}
+                                {getValues('currency') === 'USD' ? '₹' : '$'}
                             </span>
-                            <Input readOnly value={form.getValues('currency') === 'USD' ? inrValue : (amount / USD_TO_INR_RATE).toFixed(2)} className="pl-7 bg-muted" />
+                            <Input readOnly value={getValues('currency') === 'USD' ? inrValue : (amount / USD_TO_INR_RATE).toFixed(2)} className="pl-7 bg-muted" />
                         </div>
                     </FormItem>
-
-
-                    <FormField
-                        control={form.control}
-                        name="frequency"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Frequency</FormLabel>
-                                <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                    <FormControl>
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Select frequency" />
-                                        </SelectTrigger>
-                                    </FormControl>
-                                    <SelectContent>
-                                        <SelectItem value="Monthly">Monthly</SelectItem>
-                                        <SelectItem value="Quarterly">Quarterly</SelectItem>
-                                        <SelectItem value="Yearly">Yearly</SelectItem>
-                                        <SelectItem value="One-time">One-time</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
                     
-                     <FormField
-                        control={form.control}
-                        name="category"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Category</FormLabel>
-                                <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                    <FormControl>
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Select a category" />
-                                        </SelectTrigger>
-                                    </FormControl>
-                                    <SelectContent>
-                                        {categoryOptions.map(opt => <SelectItem key={opt} value={opt}>{opt}</SelectItem>)}
-                                    </SelectContent>
-                                </Select>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
-                    
-                    <FormField
-                        control={form.control}
-                        name="startDate"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Start Date</FormLabel>
-                                 <Popover>
-                                    <PopoverTrigger asChild>
-                                    <FormControl>
-                                        <Button
-                                        variant={"outline"}
-                                        className={cn(
-                                            "w-full pl-3 text-left font-normal",
-                                            !field.value && "text-muted-foreground"
-                                        )}
-                                        >
-                                        {field.value ? (
-                                            format(field.value, "PPP")
-                                        ) : (
-                                            <span>Pick a date</span>
-                                        )}
-                                        <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                                        </Button>
-                                    </FormControl>
-                                    </PopoverTrigger>
-                                    <PopoverContent className="w-auto p-0" align="start">
-                                        <Calendar
-                                            mode="single"
-                                            selected={field.value}
-                                            onSelect={field.onChange}
-                                            disabled={(date) => date < new Date("1900-01-01") }
-                                            initialFocus
-                                        />
-                                    </PopoverContent>
-                                </Popover>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
+                    <div className='md:col-span-2 grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-6 items-end'>
+                         <FormField
+                            control={form.control}
+                            name="startDate"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Start Date</FormLabel>
+                                    <Popover>
+                                        <PopoverTrigger asChild>
+                                        <FormControl>
+                                            <Button
+                                            variant={"outline"}
+                                            className={cn("w-full pl-3 text-left font-normal", !field.value && "text-muted-foreground")}
+                                            >
+                                            {field.value ? format(field.value, "PPP") : <span>Pick a date</span>}
+                                            <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                            </Button>
+                                        </FormControl>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-auto p-0" align="start">
+                                            <Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus />
+                                        </PopoverContent>
+                                    </Popover>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
 
-                     <FormField
-                        control={form.control}
-                        name="endDate"
-                        render={({ field }) => (
-                             <FormItem>
-                                <FormLabel>End Date</FormLabel>
-                                 <Popover>
-                                    <PopoverTrigger asChild>
-                                    <FormControl>
-                                        <Button
-                                        variant={"outline"}
-                                        className={cn(
-                                            "w-full pl-3 text-left font-normal",
-                                            !field.value && "text-muted-foreground"
-                                        )}
-                                        >
-                                        {field.value ? (
-                                            format(field.value, "PPP")
-                                        ) : (
-                                            <span>Pick a date</span>
-                                        )}
-                                        <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                                        </Button>
-                                    </FormControl>
-                                    </PopoverTrigger>
-                                    <PopoverContent className="w-auto p-0" align="start">
-                                        <Calendar
-                                            mode="single"
-                                            selected={field.value}
-                                            onSelect={field.onChange}
-                                            disabled={(date) => date < (form.getValues('startDate') || new Date("1900-01-01"))}
-                                            initialFocus
-                                        />
-                                    </PopoverContent>
-                                </Popover>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
+                        <FormField
+                            control={form.control}
+                            name="endDate"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>End Date</FormLabel>
+                                    <Popover>
+                                        <PopoverTrigger asChild>
+                                        <FormControl>
+                                            <Button
+                                            variant={"outline"}
+                                            className={cn("w-full pl-3 text-left font-normal", !field.value && "text-muted-foreground")}
+                                            >
+                                            {field.value ? format(field.value, "PPP") : <span>Pick a date</span>}
+                                            <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                            </Button>
+                                        </FormControl>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-auto p-0" align="start">
+                                            <Calendar mode="single" selected={field.value} onSelect={field.onChange} disabled={(date) => date < (getValues('startDate') || new Date("1900-01-01"))} initialFocus />
+                                        </PopoverContent>
+                                    </Popover>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                        <FormItem>
+                            <FormLabel>Duration</FormLabel>
+                            <Input readOnly value={calculatedDuration} className="bg-muted" />
+                        </FormItem>
+                    </div>
 
                     <CustomSelect
                         form={form}
@@ -370,6 +371,24 @@ export default function NewRequestDialog({ open, onOpenChange }: NewRequestDialo
                     )}
                     />
                 </div>
+                 <div className="col-span-1 md:col-span-2">
+                     <FormItem>
+                        <FormLabel>Attachment (Optional)</FormLabel>
+                        <FormControl>
+                            <div className="relative flex items-center justify-center w-full">
+                                <label htmlFor="file-upload" className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-lg cursor-pointer bg-muted/50 hover:bg-muted/80">
+                                    <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                                        <Upload className="w-8 h-8 mb-4 text-muted-foreground" />
+                                        <p className="mb-2 text-sm text-muted-foreground"><span className="font-semibold">Click to upload</span> or drag and drop</p>
+                                        <p className="text-xs text-muted-foreground">PDF, PNG, JPG or GIF (MAX. 800x400px)</p>
+                                    </div>
+                                    <Input id="file-upload" type="file" className="hidden" />
+                                </label>
+                            </div> 
+                        </FormControl>
+                        <FormMessage />
+                     </FormItem>
+                </div>
                 
                 <DialogFooter className="pt-8">
                     <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
@@ -382,3 +401,5 @@ export default function NewRequestDialog({ open, onOpenChange }: NewRequestDialo
     </Dialog>
   );
 }
+
+    

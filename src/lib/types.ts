@@ -18,6 +18,7 @@ export type SubscriptionStatus = 'Pending' | 'Approved' | 'Declined' | 'Active' 
 export interface Subscription {
   id: string;
   toolName: string;
+  vendorName?: string;
   duration: number; // in months
   cost: number;
   department: string;
@@ -47,4 +48,4 @@ export const toolOptions = ['ChatGPT', 'Canva', 'Figma', 'Notion', 'Zoom', 'Adob
 
 export const departmentOptions = ['Marketing', 'Engineering', 'Finance', 'IT', 'HR', 'Sales', 'Operations'];
 
-export const categoryOptions = ['Design', 'Marketing', 'Development', 'AI Tools', 'Cloud', 'Productivity', 'Others'];
+    

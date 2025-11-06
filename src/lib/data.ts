@@ -1,3 +1,4 @@
+
 import { User, Subscription, AppNotification, Role, SubRole } from './types';
 import { add, formatISO } from 'date-fns';
 
@@ -24,6 +25,7 @@ export const mockSubscriptions: Subscription[] = [
   {
     id: 'sub-1',
     toolName: 'Figma',
+    vendorName: 'Figma',
     duration: 12,
     cost: 1440,
     department: 'Engineering',
@@ -39,6 +41,7 @@ export const mockSubscriptions: Subscription[] = [
   {
     id: 'sub-2',
     toolName: 'Canva',
+    vendorName: 'Canva',
     duration: 12,
     cost: 1200,
     department: 'Marketing',
@@ -54,6 +57,7 @@ export const mockSubscriptions: Subscription[] = [
   {
     id: 'sub-3',
     toolName: 'Notion',
+    vendorName: 'Notion',
     duration: 6,
     cost: 600,
     department: 'Engineering',
@@ -69,6 +73,7 @@ export const mockSubscriptions: Subscription[] = [
   {
     id: 'sub-4',
     toolName: 'Slack',
+    vendorName: 'Slack',
     duration: 12,
     cost: 960,
     department: 'Marketing',
@@ -80,6 +85,7 @@ export const mockSubscriptions: Subscription[] = [
   {
     id: 'sub-5',
     toolName: 'ChatGPT',
+    vendorName: 'OpenAI',
     duration: 1,
     cost: 20,
     department: 'Engineering',
@@ -93,6 +99,7 @@ export const mockSubscriptions: Subscription[] = [
   {
     id: 'sub-6',
     toolName: 'Zoom',
+    vendorName: 'Zoom',
     duration: 12,
     cost: 1500,
     department: 'Marketing',
@@ -137,3 +144,5 @@ export const mockNotifications: AppNotification[] = [
         createdAt: formatISO(add(today, { days: -2 })),
     },
 ];
+
+    
