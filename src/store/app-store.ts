@@ -4,7 +4,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { User, Subscription, AppNotification, Role, SubRole, SubscriptionStatus } from '@/lib/types';
-import { mockUsers, mockSubscriptions, mockNotifications, departmentHODs } from '@/lib/data';
+import { mockUsers, mockSubscriptions, mockNotifications } from '@/lib/data';
 import { add, formatISO } from 'date-fns';
 import { getAuth, signInWithPopup, GoogleAuthProvider, User as FirebaseUser } from 'firebase/auth';
 import { initializeFirebase } from '@/firebase';
@@ -20,9 +20,9 @@ interface AppState {
   logout: () => void;
   addSubscriptionRequest: (request: Omit<Subscription, 'id' | 'status' | 'requestDate'>) => void;
   renewSubscription: (subscriptionId: string, renewalDuration: number, updatedCost: number, remarks: string, alertDays: number) => void;
-  updateSubscriptionStatus: (subscriptionId: string, status: 'Approved by HOD' | 'Declined', approverId: string, declineReason?: string) => void;
-  approveByAPA: (subscriptionId: string, apaId: string) => void;
-  markAsPaid: (subscriptionId: string, payerId: string, paymentMode: string) => void;
+  updateSubscriptionStatus: (subscriptionId: string, status: 'Approved by HOD' | 'Declined by HOD', approverId: string, declineReason?: string) => void;
+  updateFinanceStatus: (subscriptionId: string, status: 'Approved by APA' | 'Declined by APA', approverId: string, declineReason?: string) => void;
+  markAsPaid: (subscriptionId: string, payerId: string, paymentDetails: { mode: string, transactionId?: string }) => void;
   addNotification: (userId: string, message: string) => void;
   readNotification: (notificationId: string) => void;
 }
@@ -92,15 +92,13 @@ export const useAppStore = create<AppState>()(
             const appUser = get().users.find(u => u.email.toLowerCase() === normalizedEmail);
             
             if (!appUser) {
-                // For demo purposes, creating a new user if not found.
-                // In a real app, you might want to throw an error or handle it differently.
                 const newUser: User = {
                     id: generateId(),
                     name: googleUser.displayName || 'New User',
                     email: normalizedEmail,
                     role: role,
                     subrole: subrole,
-                    department: 'Unassigned', // Or prompt for department
+                    department: 'Unassigned',
                     googleUid: googleUser.uid,
                 };
                 set(state => ({ users: [...state.users, newUser], currentUser: newUser }));
@@ -127,10 +125,8 @@ export const useAppStore = create<AppState>()(
                  throw new Error("Login cancelled. Please try again.");
             }
             if (error.code === 'auth/invalid-continue-uri') {
-                // This is a specific configuration error, let's provide a clearer message.
                 throw new Error("Configuration error: The redirect URI is invalid. Please contact support.");
             }
-            // Re-throw other errors to be caught by the UI
             throw error;
         }
       },
@@ -161,7 +157,6 @@ export const useAppStore = create<AppState>()(
           subscriptions: [...state.subscriptions, newSubscription],
         }));
 
-        // Notify requester and HOD
         get().addNotification(currentUser.id, `Your request for ${request.toolName} has been submitted.`);
         
         const hod = get().users.find(u => u.role === 'hod' && u.department === request.department);
@@ -187,7 +182,6 @@ export const useAppStore = create<AppState>()(
           status: 'Pending',
           requestDate: formatISO(new Date()),
           requestedBy: currentUser.id,
-          // Reset approval/payment info
           approvedBy: undefined,
           approvalDate: undefined,
           paidBy: undefined,
@@ -213,12 +207,12 @@ export const useAppStore = create<AppState>()(
               
               if (status === 'Approved by HOD') {
                 if (requester) get().addNotification(requester.id, `Your request for ${sub.toolName} has been approved by the HOD.`);
-                const apaUsers = get().users.filter(u => u.role === 'finance' && u.subrole === 'apa');
-                apaUsers.forEach(fu => get().addNotification(fu.id, `Subscription for ${sub.toolName} is approved by HOD and waiting for your verification.`));
-                return { ...sub, status: 'Approved by HOD', approvedBy: approverId, approvalDate: formatISO(new Date()) };
+                const apaUsers = get().users.filter(u => u.role === 'finance' && u.subrole === 'apa' && u.department === sub.department);
+                apaUsers.forEach(fu => get().addNotification(fu.id, `Subscription for ${sub.toolName} from ${sub.department} is awaiting your verification.`));
+                return { ...sub, status, approvedBy: approverId, approvalDate: formatISO(new Date()) };
               }
-              if (status === 'Declined') {
-                 if (requester) get().addNotification(requester.id, `Your request for ${sub.toolName} has been declined. Reason: ${reason}`);
+              if (status === 'Declined by HOD') {
+                 if (requester) get().addNotification(requester.id, `Your request for ${sub.toolName} has been declined by HOD. Reason: ${reason}`);
                 return { ...sub, status, remarks: `Declined by HOD: ${reason}`, approvalDate: formatISO(new Date()), approvedBy: approverId };
               }
               return sub;
@@ -228,37 +222,47 @@ export const useAppStore = create<AppState>()(
         }));
       },
 
-      approveByAPA: (subscriptionId, apaId) => {
+      updateFinanceStatus: (subscriptionId, status, approverId, reason) => {
         set((state) => ({
           subscriptions: state.subscriptions.map((sub) => {
             if (sub.id === subscriptionId) {
               const requester = get().users.find(u => u.id === sub.requestedBy);
-              if (requester) get().addNotification(requester.id, `Your request for ${sub.toolName} has been approved by Finance (APA).`);
-              
-              const amUsers = get().users.filter(u => u.role === 'finance' && u.subrole === 'am');
-              amUsers.forEach(fu => get().addNotification(fu.id, `Subscription for ${sub.toolName} is approved by APA and ready for payment.`));
 
-              return { ...sub, status: 'Approved by APA', apaApprovedBy: apaId, apaApprovalDate: formatISO(new Date()) };
+              if (status === 'Approved by APA') {
+                 if (requester) get().addNotification(requester.id, `Your request for ${sub.toolName} has been approved by Finance.`);
+                  const amUsers = get().users.filter(u => u.role === 'finance' && u.subrole === 'am');
+                  amUsers.forEach(fu => get().addNotification(fu.id, `Subscription for ${sub.toolName} is approved and ready for payment.`));
+                 return { ...sub, status, apaApprovedBy: approverId, apaApprovalDate: formatISO(new Date()) };
+              }
+               if (status === 'Declined by APA') {
+                  if (requester) get().addNotification(requester.id, `Your request for ${sub.toolName} has been declined by Finance. Reason: ${reason}`);
+                 return { ...sub, status, remarks: `Declined by APA: ${reason}`, apaApprovalDate: formatISO(new Date()), apaApprovedBy: approverId };
+               }
+              return sub;
             }
             return sub;
           }),
         }));
       },
 
-      markAsPaid: (subscriptionId, payerId, paymentMode) => {
+      markAsPaid: (subscriptionId, payerId, paymentDetails) => {
         set((state) => ({
           subscriptions: state.subscriptions.map((sub) => {
             if (sub.id === subscriptionId) {
                const requester = get().users.find(u => u.id === sub.requestedBy);
                if(requester) get().addNotification(requester.id, `Payment for ${sub.toolName} has been completed. Your subscription is now active.`);
+              
+               const hod = get().users.find(u => u.department === sub.department && u.role === 'hod');
+               if (hod) get().addNotification(hod.id, `Payment for ${sub.toolName} (Dept: ${sub.department}) has been completed.`);
 
               return {
                 ...sub,
-                status: 'Active',
+                status: 'Active', // Or 'Payment Completed'
                 paidBy: payerId,
                 paymentDate: formatISO(new Date()),
                 expiryDate: formatISO(add(new Date(), { months: sub.duration })),
-                remarks: `Paid via ${paymentMode}`
+                paymentDetails: paymentDetails,
+                remarks: `Paid via ${paymentDetails.mode}`
               };
             }
             return sub;

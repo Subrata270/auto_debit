@@ -31,7 +31,7 @@ const ApprovalActions = ({ subscription }: { subscription: Subscription }) => {
 
     const handleDecline = () => {
         if(!currentUser) return;
-        updateSubscriptionStatus(subscription.id, 'Declined', currentUser.id, declineReason);
+        updateSubscriptionStatus(subscription.id, 'Declined by HOD', currentUser.id, declineReason);
         setIsDeclineOpen(false);
         setDeclineReason("");
     }
@@ -117,8 +117,8 @@ export default function HODDashboardPage() {
     const pendingApprovals = departmentSubscriptions.filter(s => s.status === 'Pending');
     const expiringSoon = departmentSubscriptions.filter(s => s.status === 'Active' && s.expiryDate && new Date(s.expiryDate) < new Date(Date.now() + 30 * 24 * 60 * 60 * 1000));
     
-    const approvedHistory = departmentSubscriptions.filter(s => s.status !== 'Pending' && s.status !== 'Declined' && s.approvedBy);
-    const declinedHistory = departmentSubscriptions.filter(s => s.status === 'Declined');
+    const approvedHistory = departmentSubscriptions.filter(s => s.status !== 'Pending' && s.status !== 'Declined by HOD' && s.status !== 'Declined by APA');
+    const declinedHistory = departmentSubscriptions.filter(s => s.status === 'Declined by HOD' || s.status === 'Declined by APA');
 
     const getUserName = (userId: string) => users.find(u => u.id === userId)?.name || 'Unknown User';
 

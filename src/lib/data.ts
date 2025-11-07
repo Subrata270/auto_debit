@@ -10,12 +10,14 @@ export const mockUsers: User[] = [
   { id: 'user-2', name: 'Bob Johnson', email: 'bob@example.com', password: 'password', role: 'employee', subrole: null, department: 'Engineering' },
   
   // HODs
-  { id: 'user-3', name: 'Charles Brown', email: 'charles.brown@example.com', password: 'password', role: 'hod', subrole: null, department: 'Marketing' },
-  { id: 'user-4', name: 'Diana Prince', email: 'diana.prince@example.com', password: 'password', role: 'hod', subrole: null, department: 'Engineering' },
+  { id: 'user-3', name: 'Charles Brown (HOD)', email: 'charles.brown@example.com', password: 'password', role: 'hod', subrole: null, department: 'Marketing' },
+  { id: 'user-4', name: 'Diana Prince (HOD)', email: 'diana.prince@example.com', password: 'password', role: 'hod', subrole: null, department: 'Engineering' },
 
   // Finance
-  { id: 'user-5', name: 'Ethan Hunt (APA)', email: 'ethan@example.com', password: 'password', role: 'finance', subrole: 'apa', department: 'Finance' },
+  { id: 'user-5', name: 'Ethan Hunt (APA)', email: 'ethan@example.com', password: 'password', role: 'finance', subrole: 'apa', department: 'Marketing' },
+  { id: 'user-8', name: 'Ivy Queen (APA)', email: 'ivy@example.com', password: 'password', role: 'finance', subrole: 'apa', department: 'Engineering' },
   { id: 'user-6', name: 'Fiona Glenanne (AM)', email: 'fiona@example.com', password: 'password', role: 'finance', subrole: 'am', department: 'Finance' },
+
 
   // Admin
   { id: 'user-7', name: 'Grace O-Malley (Admin)', email: 'grace@example.com', password: 'password', role: 'admin', subrole: null, department: 'IT' },
@@ -41,13 +43,14 @@ export const mockSubscriptions: Subscription[] = [
     cost: 1440,
     department: 'Engineering',
     purpose: 'For UI/UX design and collaboration.',
-    status: 'Active',
+    status: 'Payment Completed',
     requestedBy: 'user-2',
     requestDate: formatISO(add(today, { months: -6 })),
     expiryDate: formatISO(add(today, { months: 6 })),
     approvedBy: 'user-4',
-    paidBy: 'user-5',
-    paymentDate: formatISO(add(today, { months: -6, days: 2 })),
+    apaApprovedBy: 'user-8',
+    paidBy: 'user-6',
+    paymentDate: formatISO(add(today, { months: -6, days: 4 })),
   },
   {
     id: 'sub-2',
@@ -62,7 +65,8 @@ export const mockSubscriptions: Subscription[] = [
     requestDate: formatISO(add(today, { months: -2 })),
     expiryDate: formatISO(add(today, { months: 10 })),
     approvedBy: 'user-3',
-    paidBy: 'user-5',
+    apaApprovedBy: 'user-5',
+    paidBy: 'user-6',
     paymentDate: formatISO(add(today, { months: -2, days: 2 })),
   },
   {
@@ -78,7 +82,8 @@ export const mockSubscriptions: Subscription[] = [
     requestDate: formatISO(add(today, { months: -7 })),
     expiryDate: formatISO(add(today, { months: -1 })),
     approvedBy: 'user-4',
-    paidBy: 'user-5',
+    apaApprovedBy: 'user-8',
+    paidBy: 'user-6',
     paymentDate: formatISO(add(today, { months: -7, days: 2 })),
   },
   {
@@ -101,7 +106,7 @@ export const mockSubscriptions: Subscription[] = [
     cost: 20,
     department: 'Engineering',
     purpose: 'AI-assisted coding and content generation.',
-    status: 'Approved',
+    status: 'Approved by HOD',
     requestedBy: 'user-2',
     requestDate: formatISO(add(today, { days: -2 })),
     approvedBy: 'user-4',
@@ -120,9 +125,26 @@ export const mockSubscriptions: Subscription[] = [
     requestDate: formatISO(add(today, { months: -1 })),
     expiryDate: formatISO(add(today, { days: 8 })), // Expiring soon
     approvedBy: 'user-3',
-    paidBy: 'user-5',
+    apaApprovedBy: 'user-5',
+    paidBy: 'user-6',
     paymentDate: formatISO(add(today, { months: -1, days: 2 })),
     alertDays: 10,
+  },
+   {
+    id: 'sub-7',
+    toolName: 'Adobe Express',
+    vendorName: 'Adobe',
+    duration: 12,
+    cost: 120,
+    department: 'Marketing',
+    purpose: 'Quickly create graphics and videos.',
+    status: 'Approved by APA',
+    requestedBy: 'user-1',
+    requestDate: formatISO(add(today, { days: -5 })),
+    approvedBy: 'user-3',
+    approvalDate: formatISO(add(today, { days: -4 })),
+    apaApprovedBy: 'user-5',
+    apaApprovalDate: formatISO(add(today, { days: -3 })),
   },
 ];
 
@@ -137,16 +159,16 @@ export const mockNotifications: AppNotification[] = [
     { 
         id: 'notif-2', 
         userId: 'user-2', 
-        message: 'Your request for ChatGPT has been approved and is pending payment.', 
+        message: 'Your request for ChatGPT has been approved by your HOD and is pending finance approval.', 
         isRead: false, 
         createdAt: formatISO(add(today, { days: -1 })),
     },
     { 
         id: 'notif-3', 
         userId: 'user-4', 
-        message: 'A new subscription request for ChatGPT is awaiting your approval.', 
+        message: 'You have approved the request for ChatGPT.', 
         isRead: true, 
-        createdAt: formatISO(add(today, { days: -2 })),
+        createdAt: formatISO(add(today, { days: -1 })),
     },
     { 
         id: 'notif-4', 
@@ -154,5 +176,19 @@ export const mockNotifications: AppNotification[] = [
         message: 'Your department’s subscription for Zoom is expiring in 8 days.', 
         isRead: false, 
         createdAt: formatISO(add(today, { days: -2 })),
+    },
+     { 
+        id: 'notif-5', 
+        userId: 'user-5', 
+        message: 'A new request for ChatGPT from Engineering is awaiting your approval.', 
+        isRead: false, 
+        createdAt: formatISO(add(today, { days: -1 })),
+    },
+     { 
+        id: 'notif-6', 
+        userId: 'user-6', 
+        message: 'A new request for Adobe Express from Marketing has been approved by APA and is ready for payment.', 
+        isRead: false, 
+        createdAt: formatISO(add(today, { days: -3 })),
     },
 ];
