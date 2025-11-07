@@ -12,21 +12,19 @@ import {
 } from "@/components/ui/sidebar"
 import Logo from "@/components/logo"
 import { useAppStore } from "@/store/app-store"
-import { LayoutDashboard, FileText, LifeBuoy, Users, WalletCards } from "lucide-react"
+import { LayoutDashboard, LifeBuoy, Users } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 
 const navItems = {
   employee: [
     { href: "/dashboard/employee", label: "Dashboard", icon: LayoutDashboard },
-    { href: "/dashboard/employee/reports", label: "Reports", icon: FileText },
   ],
   hod: [
     { href: "/dashboard/hod", label: "Dashboard", icon: LayoutDashboard },
   ],
   finance: [
     { href: "/dashboard/finance", label: "Dashboard", icon: LayoutDashboard },
-    { href: "/dashboard/finance/payments", label: "Payments", icon: WalletCards },
   ],
   admin: [
     { href: "/dashboard/admin", label: "Dashboard", icon: LayoutDashboard },

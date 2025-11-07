@@ -16,6 +16,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Subscription } from "@/lib/types";
 import DeclineInfoDialog from "../../components/decline-info-dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import PaymentProcessDialog from "../../components/payment-process-dialog";
 
 const StatusBadge = ({ status }: { status: string }) => {
     let colorClass = 'bg-gray-200 text-gray-800';
@@ -52,11 +53,13 @@ const HistoryCard = ({ title, icon, data, bgColor, isDecline = false }: { title:
                                   </TableRow>
                                 </DeclineInfoDialog>
                                ) : (
-                                <TableRow key={sub.id}>
-                                    <TableCell className="font-medium">{sub.toolName}</TableCell>
-                                    <TableCell>${sub.cost.toFixed(2)}</TableCell>
-                                    <TableCell>{format(new Date(sub.approvalDate || sub.requestDate), "PP")}</TableCell>
-                                </TableRow>
+                                <PaymentProcessDialog subscription={sub} key={sub.id}>
+                                    <TableRow className="cursor-pointer hover:bg-green-100/50">
+                                        <TableCell className="font-medium">{sub.toolName}</TableCell>
+                                        <TableCell>${sub.cost.toFixed(2)}</TableCell>
+                                        <TableCell>{format(new Date(sub.approvalDate || sub.requestDate), "PP")}</TableCell>
+                                    </TableRow>
+                                </PaymentProcessDialog>
                                )
                         )) : <TableRow><TableCell colSpan={3} className="text-center h-24">No history found.</TableCell></TableRow>}
                     </TableBody>
