@@ -20,7 +20,8 @@ interface AppState {
   logout: () => void;
   addSubscriptionRequest: (request: Omit<Subscription, 'id' | 'status' | 'requestDate'>) => void;
   renewSubscription: (subscriptionId: string, renewalDuration: number, updatedCost: number, remarks: string, alertDays: number) => void;
-  updateSubscriptionStatus: (subscriptionId: string, status: SubscriptionStatus, approverId: string, declineReason?: string) => void;
+  updateSubscriptionStatus: (subscriptionId: string, status: 'Approved by HOD' | 'Declined', approverId: string, declineReason?: string) => void;
+  approveByAPA: (subscriptionId: string, apaId: string) => void;
   markAsPaid: (subscriptionId: string, payerId: string, paymentMode: string) => void;
   addNotification: (userId: string, message: string) => void;
   readNotification: (notificationId: string) => void;
@@ -206,17 +207,34 @@ export const useAppStore = create<AppState>()(
             if (sub.id === subscriptionId) {
               const requester = get().users.find(u => u.id === sub.requestedBy);
               
-              if (status === 'Approved') {
-                if (requester) get().addNotification(requester.id, `Your request for ${sub.toolName} has been approved.`);
-                const financeUsers = get().users.filter(u => u.role === 'finance');
-                financeUsers.forEach(fu => get().addNotification(fu.id, `Subscription for ${sub.toolName} is approved and waiting for payment.`));
-                return { ...sub, status: 'Approved', approvedBy: approverId, approvalDate: formatISO(new Date()) };
+              if (status === 'Approved by HOD') {
+                if (requester) get().addNotification(requester.id, `Your request for ${sub.toolName} has been approved by the HOD.`);
+                const apaUsers = get().users.filter(u => u.role === 'finance' && u.subrole === 'apa');
+                apaUsers.forEach(fu => get().addNotification(fu.id, `Subscription for ${sub.toolName} is approved by HOD and waiting for your verification.`));
+                return { ...sub, status: 'Approved by HOD', approvedBy: approverId, approvalDate: formatISO(new Date()) };
               }
               if (status === 'Declined') {
                  if (requester) get().addNotification(requester.id, `Your request for ${sub.toolName} has been declined. Reason: ${reason}`);
                 return { ...sub, status, remarks: `Declined by HOD: ${reason}`, approvalDate: formatISO(new Date()), approvedBy: approverId };
               }
               return sub;
+            }
+            return sub;
+          }),
+        }));
+      },
+
+      approveByAPA: (subscriptionId, apaId) => {
+        set((state) => ({
+          subscriptions: state.subscriptions.map((sub) => {
+            if (sub.id === subscriptionId) {
+              const requester = get().users.find(u => u.id === sub.requestedBy);
+              if (requester) get().addNotification(requester.id, `Your request for ${sub.toolName} has been approved by Finance (APA).`);
+              
+              const amUsers = get().users.filter(u => u.role === 'finance' && u.subrole === 'am');
+              amUsers.forEach(fu => get().addNotification(fu.id, `Subscription for ${sub.toolName} is approved by APA and ready for payment.`));
+
+              return { ...sub, status: 'Approved by APA', apaApprovedBy: apaId, apaApprovalDate: formatISO(new Date()) };
             }
             return sub;
           }),

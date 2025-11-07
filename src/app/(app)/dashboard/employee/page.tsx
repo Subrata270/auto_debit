@@ -21,7 +21,7 @@ import PaymentProcessDialog from "../../components/payment-process-dialog";
 const StatusBadge = ({ status }: { status: string }) => {
     let colorClass = 'bg-gray-200 text-gray-800';
     if (status === 'Active') colorClass = 'bg-gradient-to-r from-green-400 to-emerald-500 text-white';
-    if (status === 'Pending' || status === 'Approved') colorClass = 'bg-gradient-to-r from-yellow-400 to-amber-500 text-white';
+    if (status === 'Pending' || status === 'Approved by HOD' || status === 'Approved by APA') colorClass = 'bg-gradient-to-r from-yellow-400 to-amber-500 text-white';
     if (status === 'Expired' || status === 'Declined') colorClass = 'bg-gradient-to-r from-red-400 to-rose-500 text-white';
 
     return <Badge className={`capitalize border-none ${colorClass}`}>{status.toLowerCase()}</Badge>;
@@ -78,7 +78,7 @@ export default function DepartmentPOCDashboardPage() {
     const departmentSubscriptions = subscriptions.filter(s => s.department === currentUser.department);
     
     const activeSubscriptions = departmentSubscriptions.filter(s => s.status === 'Active');
-    const pendingRequests = departmentSubscriptions.filter(s => s.status === 'Pending' || s.status === 'Approved');
+    const pendingRequests = departmentSubscriptions.filter(s => s.status === 'Pending' || s.status === 'Approved by HOD' || s.status === 'Approved by APA');
 
     const today = new Date();
     const renewalAlerts = activeSubscriptions.filter(sub => {
@@ -89,7 +89,7 @@ export default function DepartmentPOCDashboardPage() {
         return daysLeft <= alertDays && daysLeft >= 0;
     });
     
-    const approvedHistory = departmentSubscriptions.filter(s => s.status === 'Active' || s.status === 'Expired' && s.approvedBy);
+    const approvedHistory = departmentSubscriptions.filter(s => (s.status === 'Active' || s.status === 'Expired' || s.status === 'Payment Completed') && s.approvedBy);
     const declinedHistory = departmentSubscriptions.filter(s => s.status === 'Declined');
     
     const cardVariants = {

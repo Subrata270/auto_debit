@@ -16,6 +16,36 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { motion } from "framer-motion";
 import DeclineInfoDialog from "../../components/decline-info-dialog";
 import PaymentProcessDialog from "../../components/payment-process-dialog";
+import { useToast } from "@/hooks/use-toast";
+
+const ApaApprovalDialog = ({ subscription, onApprove }: { subscription: Subscription; onApprove: () => void; }) => {
+    return (
+        <Dialog>
+            <DialogTrigger asChild>
+                <Button size="sm" className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white hover:scale-105 transition-transform">Approve</Button>
+            </DialogTrigger>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Confirm Finance Approval</DialogTitle>
+                    <DialogDescription>
+                        Confirming this will send the request to the Accounts Manager for final payment processing.
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-2 py-4 text-sm">
+                    <div><strong>Tool:</strong> {subscription.toolName}</div>
+                    <div><strong>Department:</strong> {subscription.department}</div>
+                    <div><strong>Cost:</strong> <span className="font-bold text-lg">${subscription.cost.toFixed(2)}</span></div>
+                </div>
+                <DialogFooter>
+                    <DialogClose asChild><Button variant="ghost">Cancel</Button></DialogClose>
+                    <DialogClose asChild>
+                        <Button onClick={onApprove}><Check className="mr-2 h-4 w-4" />Confirm Approval</Button>
+                    </DialogClose>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+};
 
 const PaymentDialog = ({ subscription }: { subscription: Subscription }) => {
     const { currentUser, markAsPaid } = useAppStore();
@@ -35,7 +65,7 @@ const PaymentDialog = ({ subscription }: { subscription: Subscription }) => {
                 <DialogHeader>
                     <DialogTitle>Approve Payment</DialogTitle>
                     <DialogDescription>Confirm payment for {subscription.toolName}.</DialogDescription>
-                </DialogHeader>
+                </Header>
                 <div className="space-y-4 py-4">
                     <div className="text-sm"><strong>Tool:</strong> {subscription.toolName}</div>
                     <div className="text-sm"><strong>Department:</strong> {subscription.department}</div>
@@ -112,133 +142,139 @@ const HistoryCard = ({ title, icon, data, bgColor, isDecline = false }: { title:
     </Card>
 );
 
-export default function FinanceDashboardPage() {
+const APADashboard = () => {
+    const { currentUser, subscriptions, users, approveByAPA } = useAppStore();
+    const { toast } = useToast();
+    
+    if (!currentUser) return null;
+
+    const pendingApaApproval = subscriptions.filter(s => s.status === 'Approved by HOD');
+    const getUserName = (userId: string) => users.find(u => u.id === userId)?.name || 'Unknown';
+    
+    const handleApaApprove = (subscriptionId: string) => {
+        if (!currentUser) return;
+        approveByAPA(subscriptionId, currentUser.id);
+        toast({
+            title: "Request Approved",
+            description: "Request sent to Accounts Manager for payment approval.",
+        });
+    }
+
+    return (
+        <div className="space-y-6">
+            <header>
+                <h1 className="text-2xl font-bold">APA Dashboard</h1>
+                <p className="text-muted-foreground mt-1">Review and approve HOD-approved subscription requests.</p>
+            </header>
+
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
+                <Card className="rounded-xl shadow-md">
+                    <CardHeader>
+                        <CardTitle>Subscription Request Process</CardTitle>
+                        <CardDescription>Requests approved by HODs, awaiting your verification.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>Tool</TableHead>
+                                    <TableHead>Department</TableHead>
+                                    <TableHead>Cost</TableHead>
+                                    <TableHead>HOD</TableHead>
+                                    <TableHead className="text-right">Action</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {pendingApaApproval.length > 0 ? pendingApaApproval.map(sub => (
+                                    <TableRow key={sub.id}>
+                                        <TableCell className="font-medium">{sub.toolName}</TableCell>
+                                        <TableCell>{sub.department}</TableCell>
+                                        <TableCell>${sub.cost.toFixed(2)}</TableCell>
+                                        <TableCell>{getUserName(sub.approvedBy!)}</TableCell>
+                                        <TableCell className="text-right">
+                                            <ApaApprovalDialog subscription={sub} onApprove={() => handleApaApprove(sub.id)} />
+                                        </TableCell>
+                                    </TableRow>
+                                )) : <TableRow><TableCell colSpan={5} className="text-center h-24">No requests awaiting your approval.</TableCell></TableRow>}
+                            </TableBody>
+                        </Table>
+                    </CardContent>
+                </Card>
+            </motion.div>
+        </div>
+    );
+};
+
+const AMDashboard = () => {
     const { currentUser, subscriptions, users } = useAppStore();
 
-    if (!currentUser || currentUser.role !== 'finance') return null;
-    
-    const now = new Date();
-    const nextWeek = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+    if (!currentUser) return null;
 
-    const pendingPayments = subscriptions.filter(s => s.status === 'Approved');
-    const upcomingPayments = subscriptions.filter(s => s.status === 'Active' && s.expiryDate && new Date(s.expiryDate) <= nextWeek && new Date(s.expiryDate) > now);
-    const paymentHistory = subscriptions.filter(s => (s.status === 'Active' || s.status === 'Expired') && s.paidBy);
-    const monthlySpend = paymentHistory.reduce((sum, sub) => sum + sub.cost, 0);
-    
-    const declinedHistory = subscriptions.filter(s => s.status === 'Declined');
-
+    const pendingPayment = subscriptions.filter(s => s.status === 'Approved by APA');
     const getUserName = (userId: string) => users.find(u => u.id === userId)?.name || 'Unknown';
 
     return (
         <div className="space-y-6">
             <header>
-                <h1 className="text-2xl font-bold">Welcome, Finance Team</h1>
-                <p className="text-muted-foreground mt-1">Manage your department’s subscriptions, approvals, and renewals efficiently.</p>
+                <h1 className="text-2xl font-bold">Accounts Manager Dashboard</h1>
+                <p className="text-muted-foreground mt-1">Process final payments for approved subscriptions.</p>
             </header>
-            
-            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="grid gap-6 md:grid-cols-2 lg:grid-cols-4 mt-6">
-                <Card className="bg-blue-50">
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Pending Payments</CardTitle>
-                        <Hourglass className="h-4 w-4 text-blue-800" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">{pendingPayments.length}</div>
-                        <p className="text-xs text-muted-foreground">Requests awaiting processing.</p>
-                    </CardContent>
-                </Card>
-                <Card className="bg-amber-50">
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Renewals This Week</CardTitle>
-                        <AlertTriangle className="h-4 w-4 text-amber-800" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">{upcomingPayments.length}</div>
-                        <p className="text-xs text-muted-foreground">Subscriptions due for renewal soon.</p>
-                    </CardContent>
-                </Card>
-                <Card className="bg-teal-50">
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Total Paid Subscriptions</CardTitle>
-                        <History className="h-4 w-4 text-teal-800" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">{paymentHistory.length}</div>
-                        <p className="text-xs text-muted-foreground">Total subscriptions processed.</p>
-                    </CardContent>
-                </Card>
-                 <Card className="bg-purple-50">
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Monthly Spend</CardTitle>
-                        <Wallet className="h-4 w-4 text-purple-800" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">${monthlySpend.toFixed(2)}</div>
-                        <p className="text-xs text-muted-foreground">Total spend this month.</p>
-                    </CardContent>
-                </Card>
-            </motion.div>
 
-             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
                 <Card className="rounded-xl shadow-md">
                     <CardHeader>
-                        <CardTitle>Pending Payments</CardTitle>
-                        <CardDescription>Subscriptions approved and ready for payment.</CardDescription>
+                        <CardTitle>Payment Processing</CardTitle>
+                        <CardDescription>Subscriptions approved by APA and ready for payment.</CardDescription>
                     </CardHeader>
                     <CardContent>
-                        <div className="md:hidden space-y-4">
-                            {pendingPayments.length > 0 ? pendingPayments.map(sub => (
-                                <div key={sub.id} className="border rounded-lg p-4 space-y-3 bg-background shadow-sm">
-                                    <div className="font-bold text-lg">{sub.toolName}</div>
-                                    <div className="text-sm text-muted-foreground space-y-1">
-                                        <p><strong>Department:</strong> {sub.department}</p>
-                                        <p><strong>Cost:</strong> <span className="font-semibold text-foreground">${sub.cost.toFixed(2)}</span></p>
-                                        <p><strong>Approved By:</strong> {getUserName(sub.approvedBy!)}</p>
-                                    </div>
-                                    <div className="pt-2">
-                                        <PaymentDialog subscription={sub} />
-                                    </div>
-                                </div>
-                            )) : <div className="text-center text-muted-foreground py-8">No pending payments.</div>}
-                        </div>
-
-                        <div className="hidden md:block">
-                            <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead>Tool</TableHead>
-                                        <TableHead>Department</TableHead>
-                                        <TableHead>Cost</TableHead>
-                                        <TableHead>Approved By</TableHead>
-                                        <TableHead className="text-right">Action</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {pendingPayments.length > 0 ? pendingPayments.map(sub => (
-                                        <TableRow key={sub.id}>
-                                            <TableCell className="font-medium">{sub.toolName}</TableCell>
-                                            <TableCell>{sub.department}</TableCell>
-                                            <TableCell>${sub.cost.toFixed(2)}</TableCell>
-                                            <TableCell>{getUserName(sub.approvedBy!)}</TableCell>
-                                            <TableCell className="text-right">
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>Tool</TableHead>
+                                    <TableHead>Department</TableHead>
+                                    <TableHead>Cost</TableHead>
+                                    <TableHead>Approved By (APA)</TableHead>
+                                    <TableHead className="text-right">Action</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {pendingPayment.length > 0 ? pendingPayment.map(sub => (
+                                    <TableRow key={sub.id}>
+                                        <TableCell className="font-medium">{sub.toolName}</TableCell>
+                                        <TableCell>{sub.department}</TableCell>
+                                        <TableCell>${sub.cost.toFixed(2)}</TableCell>
+                                        <TableCell>{getUserName(sub.apaApprovedBy!)}</TableCell>
+                                        <TableCell className="text-right">
                                             <PaymentDialog subscription={sub} />
-                                            </TableCell>
-                                        </TableRow>
-                                    )) : <TableRow><TableCell colSpan={5} className="text-center h-24">No pending payments.</TableCell></TableRow>}
-                                </TableBody>
-                            </Table>
-                        </div>
+                                        </TableCell>
+                                    </TableRow>
+                                )) : <TableRow><TableCell colSpan={5} className="text-center h-24">No pending payments.</TableCell></TableRow>}
+                            </TableBody>
+                        </Table>
                     </CardContent>
                 </Card>
-             </motion.div>
-
-             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
-                <h2 className="text-xl font-bold text-slate-800 mt-8 mb-4">Subscription History</h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <HistoryCard title="Approved History" icon={<CheckCircle className="text-green-600"/>} data={paymentHistory} bgColor="bg-green-50/50" />
-                    <HistoryCard title="Declined History" icon={<XCircle className="text-red-600"/>} data={declinedHistory} bgColor="bg-red-50/50" isDecline={true}/>
-                </div>
             </motion.div>
+        </div>
+    );
+};
+
+
+export default function FinanceDashboardPage() {
+    const { currentUser } = useAppStore();
+
+    if (!currentUser || currentUser.role !== 'finance') return null;
+
+    if (currentUser.subrole === 'apa') {
+        return <APADashboard />;
+    }
+
+    if (currentUser.subrole === 'am') {
+        return <AMDashboard />;
+    }
+
+    return (
+        <div className="flex items-center justify-center h-full">
+            <p className="text-muted-foreground">Please select a valid sub-role to view the finance dashboard.</p>
         </div>
     );
 }

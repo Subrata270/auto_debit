@@ -26,7 +26,7 @@ const ApprovalActions = ({ subscription }: { subscription: Subscription }) => {
 
     const handleApprove = () => {
         if(!currentUser) return;
-        updateSubscriptionStatus(subscription.id, 'Approved', currentUser.id);
+        updateSubscriptionStatus(subscription.id, 'Approved by HOD', currentUser.id);
     }
 
     const handleDecline = () => {
@@ -117,7 +117,7 @@ export default function HODDashboardPage() {
     const pendingApprovals = departmentSubscriptions.filter(s => s.status === 'Pending');
     const expiringSoon = departmentSubscriptions.filter(s => s.status === 'Active' && s.expiryDate && new Date(s.expiryDate) < new Date(Date.now() + 30 * 24 * 60 * 60 * 1000));
     
-    const approvedHistory = departmentSubscriptions.filter(s => s.status === 'Active' || s.status === 'Expired' || s.status === 'Approved');
+    const approvedHistory = departmentSubscriptions.filter(s => s.status !== 'Pending' && s.status !== 'Declined' && s.approvedBy);
     const declinedHistory = departmentSubscriptions.filter(s => s.status === 'Declined');
 
     const getUserName = (userId: string) => users.find(u => u.id === userId)?.name || 'Unknown User';
@@ -193,7 +193,7 @@ export default function HODDashboardPage() {
                                                 <TableCell>{getUserName(sub.requestedBy)}</TableCell>
                                                 <TableCell>${sub.cost.toFixed(2)}</TableCell>
                                                 <TableCell>{format(new Date(sub.requestDate), "PP")}</TableCell>
-                                                <TableCell>{departmentHODs[sub.department as keyof typeof departmentHODs]?.hodName || 'N/A'}</TableCell>
+                                                <TableCell>{departmentHODs[sub.department as keyof typeof departmentHODs]?.hodName || 'NA'}</TableCell>
                                                 <TableCell className="text-right">
                                                     <ApprovalActions subscription={sub} />
                                                 </TableCell>
@@ -217,5 +217,3 @@ export default function HODDashboardPage() {
         </div>
     );
 }
-
-    

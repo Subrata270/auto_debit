@@ -13,7 +13,7 @@ export interface User {
   googleUid?: string;
 }
 
-export type SubscriptionStatus = 'Pending' | 'Approved' | 'Declined' | 'Active' | 'Expired' | 'Payment Pending';
+export type SubscriptionStatus = 'Pending' | 'Approved by HOD' | 'Approved by APA' | 'Declined' | 'Active' | 'Expired' | 'Payment Completed' | 'Payment Declined';
 
 export interface Subscription {
   id: string;
@@ -30,8 +30,10 @@ export interface Subscription {
   invoiceUrl?: string;
   remarks?: string;
   approvedBy?: string; // HOD's userId
-  approvalDate?: string;
-  paidBy?: string; // Finance user's userId
+  approvalDate?: string; // HOD's approval date
+  apaApprovedBy?: string; // APA's userId
+  apaApprovalDate?: string;
+  paidBy?: string; // AM's userId
   paymentDate?: string;
   alertDays?: number;
 }
