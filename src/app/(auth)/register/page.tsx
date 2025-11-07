@@ -24,7 +24,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
-import { Role } from '@/lib/types';
+import { Role, SubRole } from '@/lib/types';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 
@@ -33,6 +33,7 @@ const formSchema = z.object({
   email: z.string().email('Please enter a valid email address.'),
   password: z.string().min(6, 'Password must be at least 6 characters.'),
   role: z.enum(['employee', 'hod', 'finance', 'admin'], { required_error: 'Please select a role.' }),
+  subrole: z.string().optional(),
   department: z.string().min(1, 'Please enter your department.'),
 });
 
@@ -48,12 +49,23 @@ export default function RegisterPage() {
       email: '',
       password: '',
       department: '',
+      subrole: undefined,
     },
   });
 
+  const selectedRole = form.watch('role');
+
   const onSubmit = (values: z.infer<typeof formSchema>) => {
     try {
-      register(values);
+      const userData = {
+        name: values.name,
+        email: values.email.trim().toLowerCase(),
+        password: values.password,
+        role: values.role,
+        department: values.department,
+        subrole: values.subrole as SubRole | undefined,
+      };
+      register(userData);
       toast({
         title: "Registration Successful!",
         description: `Welcome, ${values.name}! You can now log in.`,
@@ -163,6 +175,29 @@ export default function RegisterPage() {
                     )}
                 />
                </div>
+               {selectedRole === 'finance' && (
+                <FormField
+                    control={form.control}
+                    name="subrole"
+                    render={({ field }) => (
+                    <FormItem>
+                        <FormLabel>Sub-Role</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                            <SelectTrigger>
+                            <SelectValue placeholder="Select a sub-role" />
+                            </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                            <SelectItem value="apa">APA</SelectItem>
+                            <SelectItem value="am">AM</SelectItem>
+                        </SelectContent>
+                        </Select>
+                        <FormMessage />
+                    </FormItem>
+                    )}
+                />
+               )}
               <Button type="submit" className="w-full" disabled={form.formState.isSubmitting}>
                 {form.formState.isSubmitting ? 'Registering...' : 'Create Account'}
               </Button>

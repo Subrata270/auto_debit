@@ -14,7 +14,7 @@ interface AppState {
   subscriptions: Subscription[];
   notifications: AppNotification[];
   currentUser: User | null;
-  register: (user: Omit<User, 'id' | 'subrole' | 'googleUid'>) => void;
+  register: (user: Omit<User, 'id' | 'googleUid'>) => void;
   login: (email: string, password: string, role: Role, subrole?: SubRole) => User | null;
   loginWithGoogle: (role: Role, subrole?: SubRole) => Promise<User | null>;
   logout: () => void;
@@ -39,15 +39,17 @@ export const useAppStore = create<AppState>()(
 
       register: (userData) => {
         const { users } = get();
-        const existingUser = users.find(u => u.email === userData.email);
+        const normalizedEmail = userData.email.trim().toLowerCase();
+        const existingUser = users.find(u => u.email.toLowerCase() === normalizedEmail);
         if (existingUser) {
           throw new Error('An account with this email already exists.');
         }
 
         const newUser: User = {
           ...userData,
+          email: normalizedEmail,
           id: generateId(),
-          subrole: null, // Subrole can be assigned later if needed
+          subrole: userData.role === 'finance' ? (userData.subrole || null) : null,
         };
 
         set(state => ({
@@ -56,9 +58,10 @@ export const useAppStore = create<AppState>()(
       },
 
       login: (email, password, role, subrole = null) => {
+        const normalizedEmail = email.trim().toLowerCase();
         const user = get().users.find(
           (u) =>
-            u.email === email &&
+            u.email.toLowerCase() === normalizedEmail &&
             u.password === password &&
             u.role === role &&
             (role !== 'finance' || u.subrole === subrole)
@@ -84,8 +87,9 @@ export const useAppStore = create<AppState>()(
             if (!googleUser.email) {
                 throw new Error("Could not retrieve email from Google account.");
             }
-
-            const appUser = get().users.find(u => u.email === googleUser.email);
+            
+            const normalizedEmail = googleUser.email.trim().toLowerCase();
+            const appUser = get().users.find(u => u.email.toLowerCase() === normalizedEmail);
             
             if (!appUser) {
                 // For demo purposes, creating a new user if not found.
@@ -93,7 +97,7 @@ export const useAppStore = create<AppState>()(
                 const newUser: User = {
                     id: generateId(),
                     name: googleUser.displayName || 'New User',
-                    email: googleUser.email,
+                    email: normalizedEmail,
                     role: role,
                     subrole: subrole,
                     department: 'Unassigned', // Or prompt for department
