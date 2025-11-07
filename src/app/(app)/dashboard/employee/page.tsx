@@ -75,9 +75,10 @@ export default function DepartmentPOCDashboardPage() {
 
     if (!currentUser) return null;
 
-    const mySubscriptions = subscriptions.filter(s => s.requestedBy === currentUser.id);
-    const activeSubscriptions = mySubscriptions.filter(s => s.status === 'Active');
-    const pendingRequests = mySubscriptions.filter(s => s.status === 'Pending' || s.status === 'Approved');
+    const departmentSubscriptions = subscriptions.filter(s => s.department === currentUser.department);
+    
+    const activeSubscriptions = departmentSubscriptions.filter(s => s.status === 'Active');
+    const pendingRequests = departmentSubscriptions.filter(s => s.status === 'Pending' || s.status === 'Approved');
 
     const today = new Date();
     const renewalAlerts = activeSubscriptions.filter(sub => {
@@ -88,8 +89,8 @@ export default function DepartmentPOCDashboardPage() {
         return daysLeft <= alertDays && daysLeft >= 0;
     });
     
-    const approvedHistory = mySubscriptions.filter(s => s.status === 'Active' || s.status === 'Expired' && s.approvedBy);
-    const declinedHistory = mySubscriptions.filter(s => s.status === 'Declined');
+    const approvedHistory = departmentSubscriptions.filter(s => s.status === 'Active' || s.status === 'Expired' && s.approvedBy);
+    const declinedHistory = departmentSubscriptions.filter(s => s.status === 'Declined');
     
     const cardVariants = {
         hidden: { opacity: 0, y: 20 },
@@ -115,7 +116,7 @@ export default function DepartmentPOCDashboardPage() {
     return (
         <div className="space-y-6">
             <header>
-                <h1 className="text-2xl font-bold text-slate-800">Welcome to the Department of POC Dashboard!</h1>
+                <h1 className="text-2xl font-bold text-slate-800">Welcome to the {currentUser.department} Department Dashboard!</h1>
                 <p className="text-slate-500">Manage your department's active subscriptions and renewal alerts efficiently.</p>
             </header>
             
@@ -170,6 +171,9 @@ export default function DepartmentPOCDashboardPage() {
                 <Card className="rounded-xl shadow-md">
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2 text-slate-800">📋 Department Subscriptions</CardTitle>
+                         <CardDescription>
+                            Showing records for: <strong>{currentUser.department}</strong> department.
+                        </CardDescription>
                     </CardHeader>
                     <CardContent>
                         <Table>
@@ -241,7 +245,7 @@ export default function DepartmentPOCDashboardPage() {
                                             </TableCell>
                                         </TableRow>
                                     );
-                                }) : <TableRow><TableCell colSpan={5} className="text-center h-24">No active subscriptions found.</TableCell></TableRow>}
+                                }) : <TableRow><TableCell colSpan={5} className="text-center h-24">No active subscriptions found for your department.</TableCell></TableRow>}
                             </TableBody>
                         </Table>
                     </CardContent>
@@ -252,14 +256,13 @@ export default function DepartmentPOCDashboardPage() {
                 <Card className="rounded-xl shadow-md">
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2 text-slate-800"><FileText /> Pending Requests</CardTitle>
-                        <CardDescription>Track the status of your new and renewal requests.</CardDescription>
+                        <CardDescription>Track the status of your department's new and renewal requests.</CardDescription>
                     </CardHeader>
                     <CardContent>
                         <Table>
                             <TableHeader>
                                 <TableRow>
                                     <TableHead>Tool</TableHead>
-                                    <TableHead>Department</TableHead>
                                     <TableHead>Requested On</TableHead>
                                     <TableHead>Status</TableHead>
                                 </TableRow>
@@ -268,11 +271,10 @@ export default function DepartmentPOCDashboardPage() {
                                 {pendingRequests.length > 0 ? pendingRequests.map(sub => (
                                     <TableRow key={sub.id}>
                                         <TableCell className="font-medium">{sub.toolName}</TableCell>
-                                        <TableCell>{sub.department}</TableCell>
                                         <TableCell>{format(new Date(sub.requestDate), "PP")}</TableCell>
                                         <TableCell><StatusBadge status={sub.status} /></TableCell>
                                     </TableRow>
-                                )) : <TableRow><TableCell colSpan={4} className="text-center h-24">No pending requests found.</TableCell></TableRow>}
+                                )) : <TableRow><TableCell colSpan={3} className="text-center h-24">No pending requests found for your department.</TableCell></TableRow>}
                             </TableBody>
                         </Table>
                     </CardContent>
@@ -323,3 +325,5 @@ export default function DepartmentPOCDashboardPage() {
         </div>
     );
 }
+
+    

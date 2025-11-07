@@ -108,6 +108,7 @@ export default function AdminDashboardPage() {
     
     const approvedHistory = filteredSubscriptions.filter(s => s.status === 'Active' || s.status === 'Expired' || s.status === 'Approved');
     const declinedHistory = filteredSubscriptions.filter(s => s.status === 'Declined');
+    const totalUsers = selectedDepartment === 'All' ? users.length : users.filter(u => u.department === selectedDepartment).length;
 
     return (
         <div className="space-y-6">
@@ -165,7 +166,7 @@ export default function AdminDashboardPage() {
                         <Users className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">{users.length}</div>
+                        <div className="text-2xl font-bold">{totalUsers}</div>
                     </CardContent>
                 </Card>
             </motion.div>
@@ -221,3 +222,5 @@ export default function AdminDashboardPage() {
         </div>
     );
 }
+
+    
