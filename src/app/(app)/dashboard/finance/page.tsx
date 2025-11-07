@@ -65,7 +65,7 @@ const PaymentDialog = ({ subscription }: { subscription: Subscription }) => {
                 <DialogHeader>
                     <DialogTitle>Approve Payment</DialogTitle>
                     <DialogDescription>Confirm payment for {subscription.toolName}.</DialogDescription>
-                </Header>
+                </DialogHeader>
                 <div className="space-y-4 py-4">
                     <div className="text-sm"><strong>Tool:</strong> {subscription.toolName}</div>
                     <div className="text-sm"><strong>Department:</strong> {subscription.department}</div>
@@ -278,3 +278,5 @@ export default function FinanceDashboardPage() {
         </div>
     );
 }
+
+    
