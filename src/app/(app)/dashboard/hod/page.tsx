@@ -16,18 +16,22 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { motion } from "framer-motion";
 import DeclineInfoDialog from "../../components/decline-info-dialog";
 import PaymentProcessDialog from "../../components/payment-process-dialog";
+import { departmentHODs } from "@/lib/data";
 
 const ApprovalActions = ({ subscription }: { subscription: Subscription }) => {
     const { updateSubscriptionStatus } = useAppStore();
     const [isDeclineOpen, setIsDeclineOpen] = useState(false);
     const [declineReason, setDeclineReason] = useState("");
+    const { currentUser } = useAppStore();
 
     const handleApprove = () => {
-        updateSubscriptionStatus(subscription.id, 'Approved');
+        if(!currentUser) return;
+        updateSubscriptionStatus(subscription.id, 'Approved', currentUser.id);
     }
 
     const handleDecline = () => {
-        updateSubscriptionStatus(subscription.id, 'Declined', declineReason);
+        if(!currentUser) return;
+        updateSubscriptionStatus(subscription.id, 'Declined', currentUser.id, declineReason);
         setIsDeclineOpen(false);
         setDeclineReason("");
     }
@@ -161,6 +165,7 @@ export default function HODDashboardPage() {
                                             <p><strong>Requested By:</strong> {getUserName(sub.requestedBy)}</p>
                                             <p><strong>Cost:</strong> <span className="font-semibold text-foreground">${sub.cost.toFixed(2)}</span></p>
                                             <p><strong>Date:</strong> {format(new Date(sub.requestDate), "PP")}</p>
+                                            <p><strong>Approver:</strong> {departmentHODs[sub.department]?.hodName || 'N/A'}</p>
                                         </div>
                                         <div className="pt-2">
                                         <ApprovalActions subscription={sub} />
@@ -177,6 +182,7 @@ export default function HODDashboardPage() {
                                             <TableHead>Requested By</TableHead>
                                             <TableHead>Cost</TableHead>
                                             <TableHead>Requested On</TableHead>
+                                            <TableHead>Approving HOD</TableHead>
                                             <TableHead className="text-right">Actions</TableHead>
                                         </TableRow>
                                     </TableHeader>
@@ -187,11 +193,12 @@ export default function HODDashboardPage() {
                                                 <TableCell>{getUserName(sub.requestedBy)}</TableCell>
                                                 <TableCell>${sub.cost.toFixed(2)}</TableCell>
                                                 <TableCell>{format(new Date(sub.requestDate), "PP")}</TableCell>
+                                                <TableCell>{departmentHODs[sub.department]?.hodName || 'N/A'}</TableCell>
                                                 <TableCell className="text-right">
                                                     <ApprovalActions subscription={sub} />
                                                 </TableCell>
                                             </TableRow>
-                                        )) : <TableRow><TableCell colSpan={5} className="text-center h-24">No pending approvals.</TableCell></TableRow>}
+                                        )) : <TableRow><TableCell colSpan={6} className="text-center h-24">No pending approvals.</TableCell></TableRow>}
                                     </TableBody>
                                 </Table>
                             </div>

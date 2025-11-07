@@ -28,3 +28,13 @@ export const pricingRules: { [key: string]: number } = {
   "Notion AI": 10,
   "ChatGPT Plus": 20,
 };
+
+export const departmentHODs: { [key: string]: { hodName: string; hodEmail: string; } } = {
+    'Marketing': { hodName: 'Charles Brown', hodEmail: 'charles.brown@example.com' },
+    'Engineering': { hodName: 'Diana Prince', hodEmail: 'diana.prince@example.com' },
+    'Finance': { hodName: 'Ethan Hunt', hodEmail: 'ethan.hunt@example.com' },
+    'IT': { hodName: 'Grace O-Malley', hodEmail: 'grace.omalley@example.com' },
+    'HR': { hodName: 'Charles Brown', hodEmail: 'charles.brown@example.com' },
+    'Sales': { hodName: 'Diana Prince', hodEmail: 'diana.prince@example.com' },
+    'Operations': { hodName: 'Ethan Hunt', hodEmail: 'ethan.hunt@example.com' },
+};

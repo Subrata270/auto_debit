@@ -31,11 +31,11 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
-import { CalendarIcon, Clock, Upload } from 'lucide-react';
+import { CalendarIcon, Clock, Upload, User, Mail } from 'lucide-react';
 import { format, addMonths, differenceInCalendarMonths, isValid } from 'date-fns';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useState, useEffect, useMemo } from 'react';
-import { vendorToolMapping, pricingRules, USD_TO_INR_RATE } from '@/lib/pricing';
+import { vendorToolMapping, pricingRules, USD_TO_INR_RATE, departmentHODs } from '@/lib/pricing';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 const formSchema = z.object({
@@ -63,6 +63,8 @@ export default function NewRequestDialog({ open, onOpenChange }: NewRequestDialo
   const { currentUser, addSubscriptionRequest } = useAppStore();
   const { toast } = useToast();
   const [inrValue, setInrValue] = useState('₹0.00');
+  const [hodInfo, setHodInfo] = useState<{ name: string; email: string } | null>(null);
+  const [hodError, setHodError] = useState<string | null>(null);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -88,12 +90,31 @@ export default function NewRequestDialog({ open, onOpenChange }: NewRequestDialo
   const frequency = watch('frequency');
   const amount = watch('amount');
   const startDate = watch('startDate');
+  const selectedDepartment = watch('department');
 
   const availableTools = useMemo(() => {
     return vendorToolMapping[vendorName as keyof typeof vendorToolMapping] || [];
   }, [vendorName]);
   
   const knownVendors = useMemo(() => Object.keys(vendorToolMapping), []);
+
+   // Look up HOD info when department changes
+   useEffect(() => {
+    const department = getValues('department') === 'add-custom' ? getValues('departmentCustom') : getValues('department');
+    if (department) {
+      const hod = departmentHODs[department as keyof typeof departmentHODs];
+      if (hod) {
+        setHodInfo({ name: hod.hodName, email: hod.hodEmail });
+        setHodError(null);
+      } else {
+        setHodInfo(null);
+        setHodError("Department HOD not configured. Please contact Admin.");
+      }
+    } else {
+        setHodInfo(null);
+        setHodError(null);
+    }
+  }, [selectedDepartment, getValues]);
 
   // Auto-populate amount based on vendor, tool, and frequency
   useEffect(() => {
@@ -158,7 +179,16 @@ export default function NewRequestDialog({ open, onOpenChange }: NewRequestDialo
 
 
   const onSubmit = (values: z.infer<typeof formSchema>) => {
-    if (!currentUser) return;
+    if (!currentUser || !hodInfo) {
+        if(!hodInfo) {
+            toast({
+                variant: 'destructive',
+                title: 'HOD Not Found',
+                description: hodError,
+            })
+        }
+        return;
+    };
     
     const costInUSD = values.currency === 'INR' ? values.amount / USD_TO_INR_RATE : values.amount;
     const finalToolName = values.toolName === 'add-custom' ? values.toolNameCustom : values.toolName;
@@ -178,7 +208,7 @@ export default function NewRequestDialog({ open, onOpenChange }: NewRequestDialo
     });
     toast({
         title: "Request Submitted!",
-        description: `Your request for ${finalToolName} is now pending approval.`,
+        description: `Your request for ${finalToolName} has been sent to ${hodInfo.name} for approval.`,
     })
     form.reset();
     onOpenChange(false);
@@ -356,14 +386,33 @@ export default function NewRequestDialog({ open, onOpenChange }: NewRequestDialo
                         </FormItem>
                     </div>
 
-                    <CustomSelect
-                        form={form}
-                        name="department"
-                        label="Department"
-                        placeholder="Select a department"
-                        options={departmentOptions}
-                    />
-
+                    <div className="md:col-span-2">
+                        <CustomSelect
+                            form={form}
+                            name="department"
+                            label="Department"
+                            placeholder="Select a department"
+                            options={departmentOptions}
+                        />
+                         {hodInfo && (
+                            <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-800">
+                                <p className="font-semibold">This request will be sent for approval to:</p>
+                                <div className="flex items-center gap-2 mt-1">
+                                    <User className="h-4 w-4"/>
+                                    <span>{hodInfo.name}</span>
+                                </div>
+                                <div className="flex items-center gap-2 mt-1">
+                                    <Mail className="h-4 w-4"/>
+                                    <span>{hodInfo.email}</span>
+                                </div>
+                            </div>
+                        )}
+                        {hodError && (
+                             <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded-md text-sm text-red-700">
+                                {hodError}
+                            </div>
+                        )}
+                    </div>
                      <FormField
                         control={form.control}
                         name="alertDays"
@@ -441,7 +490,7 @@ export default function NewRequestDialog({ open, onOpenChange }: NewRequestDialo
                 
                 <DialogFooter className="pt-8">
                     <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
-                    <Button type="submit" className="bg-gradient-to-r from-primary to-accent text-white transition-transform duration-300 hover:scale-105 hover:shadow-lg hover:shadow-primary/30">Submit Request</Button>
+                    <Button type="submit" className="bg-gradient-to-r from-primary to-accent text-white transition-transform duration-300 hover:scale-105 hover:shadow-lg hover:shadow-primary/30" disabled={!hodInfo}>Submit Request</Button>
                 </DialogFooter>
             </form>
             </Form>

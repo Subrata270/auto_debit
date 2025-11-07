@@ -4,7 +4,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { User, Subscription, AppNotification, Role, SubRole, SubscriptionStatus } from '@/lib/types';
-import { mockUsers, mockSubscriptions, mockNotifications } from '@/lib/data';
+import { mockUsers, mockSubscriptions, mockNotifications, departmentHODs } from '@/lib/data';
 import { add, formatISO } from 'date-fns';
 import { getAuth, signInWithPopup, GoogleAuthProvider, User as FirebaseUser } from 'firebase/auth';
 import { initializeFirebase } from '@/firebase';
@@ -20,7 +20,7 @@ interface AppState {
   logout: () => void;
   addSubscriptionRequest: (request: Omit<Subscription, 'id' | 'status' | 'requestDate'>) => void;
   renewSubscription: (subscriptionId: string, renewalDuration: number, updatedCost: number, remarks: string, alertDays: number) => void;
-  updateSubscriptionStatus: (subscriptionId: string, status: SubscriptionStatus, declineReason?: string) => void;
+  updateSubscriptionStatus: (subscriptionId: string, status: SubscriptionStatus, approverId: string, declineReason?: string) => void;
   markAsPaid: (subscriptionId: string, payerId: string, paymentMode: string) => void;
   addNotification: (userId: string, message: string) => void;
   readNotification: (notificationId: string) => void;
@@ -158,7 +158,8 @@ export const useAppStore = create<AppState>()(
 
         // Notify requester and HOD
         get().addNotification(currentUser.id, `Your request for ${request.toolName} has been submitted.`);
-        const hod = get().users.find(u => u.role === 'hod' && u.department === currentUser.department);
+        
+        const hod = get().users.find(u => u.role === 'hod' && u.department === request.department);
         if (hod) {
           get().addNotification(hod.id, `New subscription request for ${request.toolName} from ${currentUser.name}.`);
         }
@@ -193,16 +194,13 @@ export const useAppStore = create<AppState>()(
         }));
         
         get().addNotification(currentUser.id, `Your renewal request for ${existingSub.toolName} has been submitted.`);
-        const hod = get().users.find(u => u.role === 'hod' && u.department === currentUser.department);
+        const hod = get().users.find(u => u.role === 'hod' && u.department === existingSub.department);
         if (hod) {
           get().addNotification(hod.id, `New renewal request for ${existingSub.toolName} from ${currentUser.name}.`);
         }
       },
       
-      updateSubscriptionStatus: (subscriptionId, status, reason) => {
-        const currentUser = get().currentUser;
-        if (!currentUser || currentUser.role !== 'hod') return;
-        
+      updateSubscriptionStatus: (subscriptionId, status, approverId, reason) => {
         set((state) => ({
           subscriptions: state.subscriptions.map((sub) => {
             if (sub.id === subscriptionId) {
@@ -212,13 +210,13 @@ export const useAppStore = create<AppState>()(
                 if (requester) get().addNotification(requester.id, `Your request for ${sub.toolName} has been approved.`);
                 const financeUsers = get().users.filter(u => u.role === 'finance');
                 financeUsers.forEach(fu => get().addNotification(fu.id, `Subscription for ${sub.toolName} is approved and waiting for payment.`));
-                return { ...sub, status: 'Approved', approvedBy: currentUser.id, approvalDate: formatISO(new Date()) };
+                return { ...sub, status: 'Approved', approvedBy: approverId, approvalDate: formatISO(new Date()) };
               }
               if (status === 'Declined') {
                  if (requester) get().addNotification(requester.id, `Your request for ${sub.toolName} has been declined. Reason: ${reason}`);
-                return { ...sub, status, remarks: `Declined by HOD: ${reason}`, approvalDate: formatISO(new Date()), approvedBy: currentUser.id };
+                return { ...sub, status, remarks: `Declined by HOD: ${reason}`, approvalDate: formatISO(new Date()), approvedBy: approverId };
               }
-              return { ...sub, status };
+              return sub;
             }
             return sub;
           }),

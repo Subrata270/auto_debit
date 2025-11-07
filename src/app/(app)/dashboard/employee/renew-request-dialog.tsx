@@ -31,11 +31,11 @@ import { useState, useEffect, useMemo } from 'react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
-import { CalendarIcon, Clock, Upload } from 'lucide-react';
+import { CalendarIcon, Clock, Upload, User, Mail } from 'lucide-react';
 import { Calendar } from '@/components/ui/calendar';
 import { addMonths, differenceInCalendarMonths, format, isValid } from 'date-fns';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { pricingRules, USD_TO_INR_RATE } from '@/lib/pricing';
+import { pricingRules, USD_TO_INR_RATE, departmentHODs } from '@/lib/pricing';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 const formSchema = z.object({
@@ -62,6 +62,8 @@ export default function RenewRequestDialog({ subscription, dialogTrigger }: Rene
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
   const [inrValue, setInrValue] = useState('₹0.00');
+  const [hodInfo, setHodInfo] = useState<{ name: string; email: string } | null>(null);
+  const [hodError, setHodError] = useState<string | null>(null);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -89,6 +91,25 @@ export default function RenewRequestDialog({ subscription, dialogTrigger }: Rene
   const watchedEndDate = watch('endDate');
   const watchedFrequency = watch('frequency');
   const watchedToolName = watch('toolName');
+  const selectedDepartment = watch('department');
+
+  // Look up HOD info when department changes
+  useEffect(() => {
+    if (selectedDepartment) {
+      const hod = departmentHODs[selectedDepartment as keyof typeof departmentHODs];
+      if (hod) {
+        setHodInfo({ name: hod.hodName, email: hod.hodEmail });
+        setHodError(null);
+      } else {
+        setHodInfo(null);
+        setHodError("Department HOD not configured. Please contact Admin.");
+      }
+    } else {
+        setHodInfo(null);
+        setHodError(null);
+    }
+  }, [selectedDepartment]);
+
 
   // Recalculate Amount based on pricing rules when tool or frequency changes
   useEffect(() => {
@@ -144,6 +165,7 @@ export default function RenewRequestDialog({ subscription, dialogTrigger }: Rene
   // Reset form when dialog opens/closes
   useEffect(() => {
     if (open) {
+      const currentDept = currentUser?.department || subscription.department;
       reset({
         vendorName: subscription.vendorName || '',
         toolName: subscription.toolName,
@@ -152,22 +174,40 @@ export default function RenewRequestDialog({ subscription, dialogTrigger }: Rene
         currency: 'USD',
         startDate: new Date(),
         endDate: addMonths(new Date(), 12),
-        department: currentUser?.department || subscription.department,
+        department: currentDept,
         purpose: subscription.purpose,
         justification: '',
         alertDays: subscription.alertDays || 10,
       });
+      // Also trigger HOD lookup on open
+      const hod = departmentHODs[currentDept as keyof typeof departmentHODs];
+      if (hod) {
+        setHodInfo({ name: hod.hodName, email: hod.hodEmail });
+        setHodError(null);
+      } else {
+        setHodInfo(null);
+        setHodError("Department HOD not configured. Please contact Admin.");
+      }
     }
   }, [open, reset, subscription, currentUser]);
 
 
   const onSubmit = (values: z.infer<typeof formSchema>) => {
+    if (!hodInfo) {
+        toast({
+            variant: 'destructive',
+            title: 'HOD Not Found',
+            description: hodError,
+        });
+        return;
+    }
+
     const durationInMonths = differenceInCalendarMonths(values.endDate, values.startDate) || 1;
     
     renewSubscription(subscription.id, durationInMonths, values.amount, values.justification, values.alertDays);
     toast({
         title: "Renewal Request Submitted!",
-        description: `Your renewal request for ${subscription.toolName} is pending approval.`,
+        description: `Your renewal request for ${subscription.toolName} has been sent to ${hodInfo.name} for approval.`,
     })
     setOpen(false);
   };
@@ -344,24 +384,44 @@ export default function RenewRequestDialog({ subscription, dialogTrigger }: Rene
                         </FormItem>
                     </div>
 
-                    <FormField
-                        control={form.control}
-                        name="department"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Department</FormLabel>
-                                 <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                    <FormControl>
-                                        <SelectTrigger><SelectValue placeholder="Select a department" /></SelectTrigger>
-                                    </FormControl>
-                                    <SelectContent>
-                                        {departmentOptions.map(opt => <SelectItem key={opt} value={opt}>{opt}</SelectItem>)}
-                                    </SelectContent>
-                                </Select>
-                                <FormMessage />
-                            </FormItem>
+                     <div className="md:col-span-2">
+                        <FormField
+                            control={form.control}
+                            name="department"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Department</FormLabel>
+                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                        <FormControl>
+                                            <SelectTrigger><SelectValue placeholder="Select a department" /></SelectTrigger>
+                                        </FormControl>
+                                        <SelectContent>
+                                            {departmentOptions.map(opt => <SelectItem key={opt} value={opt}>{opt}</SelectItem>)}
+                                        </SelectContent>
+                                    </Select>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                         {hodInfo && (
+                            <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-800">
+                                <p className="font-semibold">This renewal request will be sent for approval to:</p>
+                                <div className="flex items-center gap-2 mt-1">
+                                    <User className="h-4 w-4"/>
+                                    <span>{hodInfo.name}</span>
+                                </div>
+                                <div className="flex items-center gap-2 mt-1">
+                                    <Mail className="h-4 w-4"/>
+                                    <span>{hodInfo.email}</span>
+                                </div>
+                            </div>
                         )}
-                    />
+                        {hodError && (
+                             <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded-md text-sm text-red-700">
+                                {hodError}
+                            </div>
+                        )}
+                    </div>
                     
                     <FormField
                         control={form.control}
@@ -441,7 +501,7 @@ export default function RenewRequestDialog({ subscription, dialogTrigger }: Rene
                 
                 <DialogFooter className="pt-8">
                     <Button type="button" variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
-                    <Button type="submit" className="bg-gradient-to-r from-primary to-accent text-white transition-transform duration-300 hover:scale-105 hover:shadow-lg hover:shadow-primary/30">Submit Renewal</Button>
+                    <Button type="submit" className="bg-gradient-to-r from-primary to-accent text-white transition-transform duration-300 hover:scale-105 hover:shadow-lg hover:shadow-primary/30" disabled={!hodInfo}>Submit Renewal</Button>
                 </DialogFooter>
             </form>
           </Form>
@@ -450,5 +510,3 @@ export default function RenewRequestDialog({ subscription, dialogTrigger }: Rene
     </Dialog>
   );
 }
-
-    

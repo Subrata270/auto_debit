@@ -10,8 +10,8 @@ export const mockUsers: User[] = [
   { id: 'user-2', name: 'Bob Johnson', email: 'bob@example.com', password: 'password', role: 'employee', subrole: null, department: 'Engineering' },
   
   // HODs
-  { id: 'user-3', name: 'Charles Brown (HOD)', email: 'charles@example.com', password: 'password', role: 'hod', subrole: null, department: 'Marketing' },
-  { id: 'user-4', name: 'Diana Prince (HOD)', email: 'diana@example.com', password: 'password', role: 'hod', subrole: null, department: 'Engineering' },
+  { id: 'user-3', name: 'Charles Brown', email: 'charles.brown@example.com', password: 'password', role: 'hod', subrole: null, department: 'Marketing' },
+  { id: 'user-4', name: 'Diana Prince', email: 'diana.prince@example.com', password: 'password', role: 'hod', subrole: null, department: 'Engineering' },
 
   // Finance
   { id: 'user-5', name: 'Ethan Hunt (APA)', email: 'ethan@example.com', password: 'password', role: 'finance', subrole: 'apa', department: 'Finance' },
@@ -20,6 +20,17 @@ export const mockUsers: User[] = [
   // Admin
   { id: 'user-7', name: 'Grace O-Malley (Admin)', email: 'grace@example.com', password: 'password', role: 'admin', subrole: null, department: 'IT' },
 ];
+
+export const departmentHODs: { [key: string]: { hodName: string; hodEmail: string; } } = {
+  'Marketing': { hodName: 'Charles Brown', hodEmail: 'charles.brown@example.com' },
+  'Engineering': { hodName: 'Diana Prince', hodEmail: 'diana.prince@example.com' },
+  'Finance': { hodName: 'Ethan Hunt', hodEmail: 'ethan.hunt@example.com' },
+  'IT': { hodName: 'Grace O-Malley', hodEmail: 'grace.omalley@example.com' },
+  'HR': { hodName: 'Charles Brown', hodEmail: 'charles.brown@example.com' },
+  'Sales': { hodName: 'Diana Prince', hodEmail: 'diana.prince@example.com' },
+  'Operations': { hodName: 'Ethan Hunt', hodEmail: 'ethan.hunt@example.com' },
+};
+
 
 export const mockSubscriptions: Subscription[] = [
   {
@@ -111,6 +122,7 @@ export const mockSubscriptions: Subscription[] = [
     approvedBy: 'user-3',
     paidBy: 'user-5',
     paymentDate: formatISO(add(today, { months: -1, days: 2 })),
+    alertDays: 10,
   },
 ];
 
@@ -144,5 +156,3 @@ export const mockNotifications: AppNotification[] = [
         createdAt: formatISO(add(today, { days: -2 })),
     },
 ];
-
-    
