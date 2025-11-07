@@ -7,12 +7,14 @@ import { BarChart, LineChart, PieChart, Users, Wallet, RefreshCw, CheckCircle, X
 import { ResponsiveContainer, Bar, XAxis, YAxis, Tooltip, Legend, Line, Pie } from 'recharts';
 import { ChartContainer, ChartTooltipContent } from "@/components/ui/chart";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Subscription } from "@/lib/types";
+import { Subscription, departmentOptions } from "@/lib/types";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { format } from "date-fns";
 import { motion } from "framer-motion";
 import DeclineInfoDialog from "../../components/decline-info-dialog";
 import PaymentProcessDialog from "../../components/payment-process-dialog";
+import { useState } from "react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const chartConfig = {
   cost: {
@@ -69,17 +71,21 @@ const HistoryCard = ({ title, icon, data, bgColor, isDecline = false }: { title:
 
 export default function AdminDashboardPage() {
     const { currentUser, subscriptions, users } = useAppStore();
+    const [selectedDepartment, setSelectedDepartment] = useState('All');
 
     if (!currentUser || currentUser.role !== 'admin') return null;
 
-    const totalActive = subscriptions.filter(s => s.status === 'Active').length;
-    const totalPending = subscriptions.filter(s => s.status === 'Pending').length;
-    const totalRenewals = subscriptions.filter(s => s.remarks?.includes('Renewal')).length;
-    const monthlySpending = subscriptions
+    const filteredSubscriptions = selectedDepartment === 'All' 
+        ? subscriptions 
+        : subscriptions.filter(s => s.department === selectedDepartment);
+
+    const totalActive = filteredSubscriptions.filter(s => s.status === 'Active').length;
+    const totalRenewals = filteredSubscriptions.filter(s => s.remarks?.includes('Renewal')).length;
+    const monthlySpending = filteredSubscriptions
         .filter(s => s.status === 'Active' && s.paymentDate)
         .reduce((acc, sub) => acc + sub.cost, 0);
 
-    const departmentUsage = subscriptions.reduce((acc, sub) => {
+    const departmentUsage = filteredSubscriptions.reduce((acc, sub) => {
         if (!acc[sub.department]) {
             acc[sub.department] = { name: sub.department, count: 0 };
         }
@@ -88,7 +94,7 @@ export default function AdminDashboardPage() {
     }, {} as Record<string, { name: string, count: number }>);
     const departmentUsageData = Object.values(departmentUsage);
 
-    const monthlySpendingData = subscriptions
+    const monthlySpendingData = filteredSubscriptions
       .filter(s => s.paymentDate)
       .reduce((acc, sub) => {
         const month = new Date(sub.paymentDate!).toLocaleString('default', { month: 'short' });
@@ -100,14 +106,29 @@ export default function AdminDashboardPage() {
       }, {} as Record<string, { name: string, cost: number }>);
     const spendingData = Object.values(monthlySpendingData).slice(-6); // Last 6 months
     
-    const approvedHistory = subscriptions.filter(s => s.status === 'Active' || s.status === 'Expired' || s.status === 'Approved');
-    const declinedHistory = subscriptions.filter(s => s.status === 'Declined');
+    const approvedHistory = filteredSubscriptions.filter(s => s.status === 'Active' || s.status === 'Expired' || s.status === 'Approved');
+    const declinedHistory = filteredSubscriptions.filter(s => s.status === 'Declined');
 
     return (
         <div className="space-y-6">
-            <header>
-                <h1 className="text-2xl font-bold">Admin Overview</h1>
-                <p className="text-muted-foreground">A complete overview of the subscription ecosystem.</p>
+            <header className="flex justify-between items-center">
+                <div>
+                    <h1 className="text-2xl font-bold">Admin Overview</h1>
+                    <p className="text-muted-foreground">A complete overview of the subscription ecosystem.</p>
+                </div>
+                <div className="w-64">
+                    <Select value={selectedDepartment} onValueChange={setSelectedDepartment}>
+                        <SelectTrigger>
+                            <SelectValue placeholder="Filter by department" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="All">All Departments</SelectItem>
+                            {departmentOptions.map(dept => (
+                                <SelectItem key={dept} value={dept}>{dept}</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </div>
             </header>
 
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">

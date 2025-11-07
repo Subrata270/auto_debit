@@ -122,7 +122,7 @@ export default function FinanceDashboardPage() {
 
     const pendingPayments = subscriptions.filter(s => s.status === 'Approved');
     const upcomingPayments = subscriptions.filter(s => s.status === 'Active' && s.expiryDate && new Date(s.expiryDate) <= nextWeek && new Date(s.expiryDate) > now);
-    const paymentHistory = subscriptions.filter(s => s.status === 'Active' || s.status === 'Expired');
+    const paymentHistory = subscriptions.filter(s => (s.status === 'Active' || s.status === 'Expired') && s.paidBy);
     const monthlySpend = paymentHistory.reduce((sum, sub) => sum + sub.cost, 0);
     
     const declinedHistory = subscriptions.filter(s => s.status === 'Declined');

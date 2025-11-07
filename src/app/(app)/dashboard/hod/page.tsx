@@ -117,8 +117,8 @@ export default function HODDashboardPage() {
     const pendingApprovals = departmentSubscriptions.filter(s => s.status === 'Pending');
     const expiringSoon = departmentSubscriptions.filter(s => s.status === 'Active' && s.expiryDate && new Date(s.expiryDate) < new Date(Date.now() + 30 * 24 * 60 * 60 * 1000));
     
-    const approvedHistory = departmentSubscriptions.filter(s => s.status === 'Active' || s.status === 'Expired' || s.status === 'Approved');
-    const declinedHistory = departmentSubscriptions.filter(s => s.status === 'Declined');
+    const approvedHistory = departmentSubscriptions.filter(s => (s.status === 'Active' || s.status === 'Expired' || s.status === 'Approved') && s.approvedBy === currentUser.id);
+    const declinedHistory = departmentSubscriptions.filter(s => s.status === 'Declined' && s.approvedBy === currentUser.id);
 
     const getUserName = (userId: string) => users.find(u => u.id === userId)?.name || 'Unknown User';
 
@@ -165,7 +165,7 @@ export default function HODDashboardPage() {
                                             <p><strong>Requested By:</strong> {getUserName(sub.requestedBy)}</p>
                                             <p><strong>Cost:</strong> <span className="font-semibold text-foreground">${sub.cost.toFixed(2)}</span></p>
                                             <p><strong>Date:</strong> {format(new Date(sub.requestDate), "PP")}</p>
-                                            <p><strong>Approver:</strong> {departmentHODs[sub.department]?.hodName || 'N/A'}</p>
+                                            <p><strong>Approver:</strong> {departmentHODs[sub.department as keyof typeof departmentHODs]?.hodName || 'N/A'}</p>
                                         </div>
                                         <div className="pt-2">
                                         <ApprovalActions subscription={sub} />
@@ -193,7 +193,7 @@ export default function HODDashboardPage() {
                                                 <TableCell>{getUserName(sub.requestedBy)}</TableCell>
                                                 <TableCell>${sub.cost.toFixed(2)}</TableCell>
                                                 <TableCell>{format(new Date(sub.requestDate), "PP")}</TableCell>
-                                                <TableCell>{departmentHODs[sub.department]?.hodName || 'N/A'}</TableCell>
+                                                <TableCell>{departmentHODs[sub.department as keyof typeof departmentHODs]?.hodName || 'N/A'}</TableCell>
                                                 <TableCell className="text-right">
                                                     <ApprovalActions subscription={sub} />
                                                 </TableCell>
