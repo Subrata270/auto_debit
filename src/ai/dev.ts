@@ -4,3 +4,6 @@ config();
 import '@/ai/flows/ai-assisted-subscription-suggestions.ts';
 import '@/ai/flows/smart-notification-summaries.ts';
 import '@/ai/flows/smart-alert-prioritization.ts';
+import '@/ai/flows/subscription-expiry-reminder.ts';
+
+    

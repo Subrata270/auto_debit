@@ -168,5 +168,18 @@ service cloud.firestore {
       allow get, list: if false;
       allow create, update, delete: if false; // TODO: Add role-based access control.
     }
+    
+    /**
+     * @description Manages email logs.
+     * @path /emailLogs/{emailLogId}
+     * @allow (create) Allow authenticated users to create logs. In a real app, this should be restricted to a service account or admin role.
+     * @deny (read, update, delete) Disallow public read, update, or delete access to email logs.
+     * @principle Restricts access to email logs, allowing only creation by a trusted process.
+     */
+    match /emailLogs/{emailLogId} {
+      allow create: if isSignedIn(); // Should be restricted to a service role in production
+      allow read, update, delete: if false;
+    }
   }
 }
+    
