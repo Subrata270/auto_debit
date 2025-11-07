@@ -117,8 +117,8 @@ export default function HODDashboardPage() {
     const pendingApprovals = departmentSubscriptions.filter(s => s.status === 'Pending');
     const expiringSoon = departmentSubscriptions.filter(s => s.status === 'Active' && s.expiryDate && new Date(s.expiryDate) < new Date(Date.now() + 30 * 24 * 60 * 60 * 1000));
     
-    const approvedHistory = departmentSubscriptions.filter(s => (s.status === 'Active' || s.status === 'Expired' || s.status === 'Approved') && s.approvedBy === currentUser.id);
-    const declinedHistory = departmentSubscriptions.filter(s => s.status === 'Declined' && s.approvedBy === currentUser.id);
+    const approvedHistory = departmentSubscriptions.filter(s => s.status === 'Active' || s.status === 'Expired' || s.status === 'Approved');
+    const declinedHistory = departmentSubscriptions.filter(s => s.status === 'Declined');
 
     const getUserName = (userId: string) => users.find(u => u.id === userId)?.name || 'Unknown User';
 
@@ -154,7 +154,7 @@ export default function HODDashboardPage() {
                     <Card className="rounded-xl shadow-md">
                         <CardHeader>
                             <CardTitle className="flex items-center gap-2 text-slate-800"><Clock /> Pending Approvals</CardTitle>
-                            <CardDescription>Review and act on new subscription requests.</CardDescription>
+                            <CardDescription>Review and act on new subscription requests for the <strong>{currentUser.department}</strong> department.</CardDescription>
                         </CardHeader>
                         <CardContent>
                             <div className="md:hidden space-y-4">
@@ -171,7 +171,7 @@ export default function HODDashboardPage() {
                                         <ApprovalActions subscription={sub} />
                                         </div>
                                     </div>
-                                )) : <div className="text-center text-muted-foreground py-8">No pending approvals.</div>}
+                                )) : <div className="text-center text-muted-foreground py-8">No pending approvals for your department.</div>}
                             </div>
                             
                             <div className="hidden md:block">
@@ -198,13 +198,13 @@ export default function HODDashboardPage() {
                                                     <ApprovalActions subscription={sub} />
                                                 </TableCell>
                                             </TableRow>
-                                        )) : <TableRow><TableCell colSpan={6} className="text-center h-24">No pending approvals.</TableCell></TableRow>}
+                                        )) : <TableRow><TableCell colSpan={6} className="text-center h-24">No pending approvals for your department.</TableCell></TableRow>}
                                     </TableBody>
                                 </Table>
                             </div>
                         </CardContent>
                     </Card>
-                </motion.div>
+                 </motion.div>
 
                  <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
                     <h2 className="text-xl font-bold text-slate-800 mt-8 mb-4">Subscription History</h2>
@@ -217,3 +217,5 @@ export default function HODDashboardPage() {
         </div>
     );
 }
+
+    
