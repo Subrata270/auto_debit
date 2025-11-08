@@ -15,13 +15,12 @@ service cloud.firestore {
     
     // This function checks for existence before trying to get data, preventing errors on create.
     function getUserData() {
-      return exists(/databases/$(database)/documents/users/$(request.auth.uid))
-         ? get(/databases/$(database)/documents/users/$(request.auth.uid)).data
-         : null;
+      let path = /databases/$(database)/documents/users/$(request.auth.uid);
+      return exists(path) ? get(path).data : null;
     }
 
     function isRole(role) {
-      // Use this only when you are sure the user document exists.
+      // Use this only when you are sure the user document exists and has a role.
       let userData = getUserData();
       return userData != null && userData.role == role;
     }
@@ -31,16 +30,15 @@ service cloud.firestore {
       return userData != null && userData.subrole == subrole;
     }
     
-    function isDepartment(department) {
-      let userData = getUserData();
-      return userData != null && userData.department == department;
+    function userDepartment() {
+        let userData = getUserData();
+        return userData != null ? userData.department : "";
     }
 
     // Users collection
     // This rule MUST come first to ensure new users can create their own profile.
     match /users/{userId} {
       // A user can create their own document, and only their own.
-      // This rule is intentionally simple to avoid issues during initial registration.
       allow create: if request.auth != null && request.auth.uid == userId;
 
       // After creation, a user can only read or update their own document.
@@ -57,16 +55,15 @@ service cloud.firestore {
       allow create: if isSignedIn() && request.resource.data.requestedBy == request.auth.uid;
 
       // An employee can read their own dept subscriptions, HOD their dept, and finance/admin can read all.
-      // The rules are now based on the incoming resource data, not a separate `get()` call.
       allow read: if (isOwner(resource.data.requestedBy) || 
-                      (isRole('hod') && isDepartment(resource.data.department)) ||
+                      (isRole('hod') && userDepartment() == resource.data.department) ||
                       isRole('finance') || isRole('admin'));
                       
       // Only finance or admin can list all subscriptions.
       allow list: if isRole('finance') || isRole('admin');
 
       // Update rules remain complex but rely on the same principle.
-      allow update: if (isRole('hod') && isDepartment(resource.data.department) && request.resource.data.status in ['Approved by HOD', 'Declined by HOD']) ||
+      allow update: if (isRole('hod') && userDepartment() == resource.data.department && request.resource.data.status in ['Approved by HOD', 'Declined by HOD']) ||
                       (isRole('finance') && isSubRole('apa') && request.resource.data.status in ['Approved by APA', 'Declined by APA']) ||
                       (isRole('finance') && isSubRole('am') && request.resource.data.status == 'Active');
                       
