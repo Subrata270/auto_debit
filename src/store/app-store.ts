@@ -59,9 +59,6 @@ export const useAppStore = create<AppState>()(
                   requestResourceData: newUser
               });
               errorEmitter.emit('permission-error', permissionError);
-              
-              // Also re-throw a generic error to be caught by the UI form
-              throw new Error('Firestore permission denied while creating user profile.');
           });
 
           // Optimistically set the current user in the UI
@@ -69,7 +66,6 @@ export const useAppStore = create<AppState>()(
 
         } catch (error: any) {
           // This will catch auth errors (like email-already-in-use) 
-          // or the re-thrown error from the setDoc promise.
           console.error("Registration failed:", error.message);
           throw error; // Re-throw to be handled by the UI
         }
@@ -307,3 +303,5 @@ export const useAppStore = create<AppState>()(
     }
   )
 );
+
+    
