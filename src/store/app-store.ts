@@ -37,19 +37,22 @@ export const useAppStore = create<AppState>()(
         const userCredential = await createUserWithEmailAndPassword(auth, normalizedEmail, userData.password!);
         const firebaseUser = userCredential.user;
 
-        const newUser: User = {
+        const newUser: Omit<User, 'googleUid'> & { googleUid?: string } = {
           id: firebaseUser.uid,
           name: userData.name,
           email: normalizedEmail,
           role: userData.role,
           department: userData.department,
           subrole: userData.role === 'finance' ? (userData.subrole || null) : null,
-          googleUid: firebaseUser.providerData.some(p => p.providerId === 'google.com') ? firebaseUser.uid : undefined,
         };
+
+        if (firebaseUser.providerData.some(p => p.providerId === 'google.com')) {
+            newUser.googleUid = firebaseUser.uid;
+        }
 
         await setDoc(doc(firestore, "users", firebaseUser.uid), newUser);
 
-        set({ currentUser: newUser });
+        set({ currentUser: newUser as User });
       },
 
       login: async (email, password, role, subrole = null) => {
@@ -271,14 +274,15 @@ export const useAppStore = create<AppState>()(
           isRead: false,
           createdAt: formatISO(new Date()),
         };
-        await addDoc(collection(firestore, 'notifications'), newNotification);
+        const docRef = await addDoc(collection(firestore, 'notifications'), newNotification);
+        await updateDoc(docRef, {id: docRef.id});
       },
 
     }),
     {
       name: 'autotrack-pro-storage',
-      storage: createJSONStorage(() => sessionStorage), // We still use session storage for currentUser persistence
-      partialize: (state) => ({ currentUser: state.currentUser }), // Only persist currentUser
+      storage: createJSONStorage(() => sessionStorage),
+      partialize: (state) => ({ currentUser: state.currentUser }),
     }
   )
 );
