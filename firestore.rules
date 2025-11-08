@@ -32,7 +32,7 @@ service cloud.firestore {
     // Users collection
     match /users/{userId} {
       // Allow any authenticated user to create their own document.
-      allow create: if isSignedIn();
+      allow create: if request.auth != null && request.auth.uid == userId;
 
       // Allow a user to read or update their own document. This is crucial for other rules to work.
       allow read, update: if isOwner(userId);
