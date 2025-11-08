@@ -31,10 +31,10 @@ service cloud.firestore {
 
     // Users collection
     match /users/{userId} {
-      // Allow any authenticated user to create their own document.
-      allow create: if request.auth != null && request.auth.uid == userId;
+      // Allow a user to create their own document, and only their own.
+      allow create: if request.auth.uid == userId;
 
-      // Allow a user to read or update their own document. This is crucial for other rules to work.
+      // Allow a user to read or update their own document.
       allow read, update: if isOwner(userId);
       
       // Admins can list or delete any user.
@@ -43,8 +43,8 @@ service cloud.firestore {
 
     // Subscriptions collection
     match /subscriptions/{subscriptionId} {
-      // An employee can create their own request.
-      allow create: if isOwner(request.resource.data.requestedBy);
+      // An employee can create a request.
+      allow create: if request.resource.data.requestedBy == request.auth.uid;
 
       // An employee can read their own dept subscriptions, HOD their dept, and finance/admin can read all.
       allow read: if (isOwner(resource.data.requestedBy) || 
@@ -68,7 +68,6 @@ service cloud.firestore {
     // Notifications collection
     match /notifications/{notificationId} {
       // Allow system processes (or any signed-in user) to create notifications.
-      // In a real-world scenario, this would be locked down to backend functions.
       allow create: if isSignedIn();
       
       // Users can only manage their own notifications.
