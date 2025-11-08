@@ -30,11 +30,13 @@ service cloud.firestore {
     }
 
     // Users collection
+    // This rule MUST come first to ensure new users can create their own profile.
     match /users/{userId} {
-      // Allow a user to create their own document, and only their own.
-      allow create: if request.auth.uid == userId;
+      // A user can create their own document, and only their own.
+      // This rule is intentionally simple to avoid issues during initial registration.
+      allow create: if request.auth != null && request.auth.uid == userId;
 
-      // Allow a user to read or update their own document.
+      // After creation, a user can only read or update their own document.
       allow read, update: if isOwner(userId);
       
       // Admins can list or delete any user.
