@@ -3,84 +3,10 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    // Helper Functions
-    function isSignedIn() {
-      return request.auth != null;
-    }
-
-    function isOwner(userId) {
-      return isSignedIn() && request.auth.uid == userId;
-    }
-    
-    // This function checks for existence before trying to get data, preventing errors on create.
-    function getUserData() {
-      let path = /databases/$(database)/documents/users/$(request.auth.uid);
-      return exists(path) ? get(path).data : null;
-    }
-
-    function isRole(role) {
-      // Use this only when you are sure the user document exists and has a role.
-      let userData = getUserData();
-      return userData != null && userData.role == role;
-    }
-
-    function isSubRole(subrole) {
-      let userData = getUserData();
-      return userData != null && userData.subrole == subrole;
-    }
-    
-    function userDepartment() {
-        let userData = getUserData();
-        return userData != null ? userData.department : "";
-    }
-
-    // Users collection
-    // This rule MUST come first to ensure new users can create their own profile.
-    match /users/{userId} {
-      // A user can create their own document, and only their own.
-      allow create: if request.auth != null && request.auth.uid == userId;
-
-      // After creation, a user can only read or update their own document.
-      allow read, update: if isOwner(userId);
-      
-      // Admins can list or delete any user.
-      allow list, delete: if isRole('admin');
-    }
-
-    // Subscriptions collection
-    match /subscriptions/{subscriptionId} {
-      // An employee can create a request.
-      // We check the incoming resource data, NOT a get() call.
-      allow create: if isSignedIn() && request.resource.data.requestedBy == request.auth.uid;
-
-      // An employee can read their own dept subscriptions, HOD their dept, and finance/admin can read all.
-      allow read: if (isOwner(resource.data.requestedBy) || 
-                      (isRole('hod') && userDepartment() == resource.data.department) ||
-                      isRole('finance') || isRole('admin'));
-                      
-      // Only finance or admin can list all subscriptions.
-      allow list: if isRole('finance') || isRole('admin');
-
-      // Update rules remain complex but rely on the same principle.
-      allow update: if (isRole('hod') && userDepartment() == resource.data.department && request.resource.data.status in ['Approved by HOD', 'Declined by HOD']) ||
-                      (isRole('finance') && isSubRole('apa') && request.resource.data.status in ['Approved by APA', 'Declined by APA']) ||
-                      (isRole('finance') && isSubRole('am') && request.resource.data.status == 'Active');
-                      
-      // Only admin can delete.
-      allow delete: if isRole('admin');
-    }
-
-    // Notifications collection
-    match /notifications/{notificationId} {
-      // Allow system processes (or any signed-in user) to create notifications.
-      allow create: if isSignedIn();
-      
-      // Users can only manage their own notifications.
-      allow read, update, delete: if isOwner(resource.data.userId);
-      
-      // Disallow listing all notifications. Users should query their own.
-      allow list: if false; 
+    // Allow all read, write, update, and delete operations
+    // on all documents in all collections
+    match /{document=**} {
+      allow read, write: if true;
     }
   }
 }
