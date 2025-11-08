@@ -49,14 +49,14 @@ export const useAppStore = create<AppState>()(
             const userCredential = await createUserWithEmailAndPassword(auth, normalizedEmail, userData.password);
             const firebaseUser = userCredential.user;
 
-            // 2. Prepare user document for Firestore
-            const newUser: Omit<User, 'password' | 'googleUid'> = {
+            // 2. Prepare user document for Firestore, ensuring no undefined values
+            const newUser: User = {
                 id: firebaseUser.uid,
                 name: userData.name,
                 email: normalizedEmail,
                 role: userData.role,
                 department: userData.department,
-                subrole: userData.role === 'finance' ? (userData.subrole || null) : null,
+                subrole: userData.role === 'finance' ? (userData.subrole || 'apa') : null,
             };
 
             // 3. Save user document to Firestore
