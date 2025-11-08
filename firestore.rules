@@ -1,185 +1,68 @@
-/**
- * @file Firestore Security Rules for Auto-Debit Tracker Portal System
- * @description This ruleset enforces a strict user-ownership model for personal data and role-based access control for administrative data.
- *
- * Data Structure:
- * - User data is stored under `/users/{userId}`, where {userId} is the Firebase Auth UID.
- * - User-owned resources (e.g., subscriptionRequests, subscriptions, notifications) are stored in subcollections under `/users/{userId}`.
- * - Other collections (e.g., hodApprovals, financePayments, activityLogs) are top-level and role-restricted.
- *
- * Key Security Decisions:
- * - Users can only access their own data.
- * - Listing of user documents is disallowed.
- * - HOD approvals, finance payments, and activity logs are restricted to users with appropriate roles.
- * - Google Authentication: Access is granted only if the user exists in Firestore with the correct role.
- *
- * Denormalization for Authorization:
- * - User roles are stored directly in the `/users/{userId}` document to avoid additional reads during authorization checks.
- */
+
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    /**
-     * @description Checks if the user is signed in.
-     * @return {boolean} True if the user is signed in, false otherwise.
-     */
+    
+    // Helper Functions
     function isSignedIn() {
       return request.auth != null;
     }
 
-    /**
-     * @description Checks if the user is the owner of the document based on the provided userId.
-     * @param {string} userId The user ID to compare against the request's authentication UID.
-     * @return {boolean} True if the user is the owner, false otherwise.
-     */
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
     }
-
-    /**
-     * @description Checks if the user is the owner of an existing document.
-     * @param {string} userId The user ID to compare against the request's authentication UID and resource data.
-     * @return {boolean} True if the user is the owner and the document exists, false otherwise.
-     */
-    function isExistingOwner(userId) {
-      return isOwner(userId) && resource != null;
+    
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
     }
 
-    /**
-     * @description Root-level access rules.  These are intentionally broad and should be refined in sub-paths.
-     */
-    match /{document=**} {
-      allow read, write: if false;
+    function isRole(role) {
+      return isSignedIn() && getUserData().role == role;
     }
 
-    /**
-     * @description Manages user profile data.
-     * @path /users/{userId}
-     * @allow (create) Authenticated user creates their own profile. The `id` field must match the authenticated user's UID.
-     * @deny (create) User attempts to create a profile with an `id` that does not match their UID.
-     * @allow (get, update, delete) Authenticated user accesses and modifies their own profile.
-     * @deny (get, update, delete) Another user attempts to access or modify this profile.
-     * @principle Enforces document ownership; users can only manage their own profiles.
-     */
-    match /users/{userId} {
-      allow get: if isOwner(userId);
-      allow list: if false; // No listing of users.
-      allow create: if isOwner(userId) && request.resource.data.id == request.auth.uid;
-      allow update: if isExistingOwner(userId) && request.resource.data.id == resource.data.id; //Immutable id
-      allow delete: if isExistingOwner(userId);
-    }
-
-    /**
-     * @description Manages subscription requests for a user.
-     * @path /users/{userId}/subscriptionRequests/{subscriptionRequestId}
-     * @allow (create) Authenticated user creates a subscription request under their profile. The `employeeId` field must match their UID.
-     * @deny (create) User attempts to create a subscription request with an `employeeId` that does not match their UID.
-     * @allow (get, list, update, delete) Authenticated user accesses and manages their own subscription requests.
-     * @deny (get, list, update, delete) Another user attempts to access or modify these subscription requests.
-     * @principle Enforces document ownership; users can only manage their own subscription requests.
-     */
-    match /users/{userId}/subscriptionRequests/{subscriptionRequestId} {
-      allow get: if isOwner(userId);
-      allow list: if isOwner(userId);
-      allow create: if isOwner(userId) && request.resource.data.employeeId == request.auth.uid;
-      allow update: if isExistingOwner(userId);
-      allow delete: if isExistingOwner(userId);
-    }
-
-    /**
-     * @description Manages active subscriptions for a user.
-     * @path /users/{userId}/subscriptions/{subscriptionId}
-     * @allow (create) Authenticated user creates a subscription under their profile. The `employeeId` field must match their UID.
-     * @deny (create) User attempts to create a subscription with an `employeeId` that does not match their UID.
-     * @allow (get, list, update, delete) Authenticated user accesses and manages their own subscriptions.
-     * @deny (get, list, update, delete) Another user attempts to access or modify these subscriptions.
-     * @principle Enforces document ownership; users can only manage their own subscriptions.
-     */
-    match /users/{userId}/subscriptions/{subscriptionId} {
-      allow get: if isOwner(userId);
-      allow list: if isOwner(userId);
-      allow create: if isOwner(userId) && request.resource.data.employeeId == request.auth.uid;
-      allow update: if isExistingOwner(userId);
-      allow delete: if isExistingOwner(userId);
-    }
-
-    /**
-     * @description Manages notifications for a user.
-     * @path /users/{userId}/notifications/{notificationId}
-     * @allow (create) System creates a notification under the user's profile. The `userId` field must match the intended recipient's UID.
-     * @deny (create) User attempts to create a notification for another user.
-     * @allow (get, list, update, delete) Authenticated user accesses and manages their own notifications.
-     * @deny (get, list, update, delete) Another user attempts to access or modify these notifications.
-     * @principle Enforces document ownership; users can only manage their own notifications.
-     */
-    match /users/{userId}/notifications/{notificationId} {
-      allow get: if isOwner(userId);
-      allow list: if isOwner(userId);
-      allow create: if request.resource.data.userId == userId;  // Server-side only.
-      allow update: if isExistingOwner(userId);
-      allow delete: if isExistingOwner(userId);
-    }
-
-    /**
-     * @description Manages renewal requests for subscriptions.
-     * @path /subscriptions/{subscriptionId}/renewalRequests/{renewalRequestId}
-     * @allow (get, list) Anyone can read renewal requests (assuming subscription is public).
-     * @allow (create, update, delete) No direct write access. These operations are likely handled via a backend function with role-based checks.
-     * @principle Renewal requests are managed server-side, not directly by users.
-     */
-    match /subscriptions/{subscriptionId}/renewalRequests/{renewalRequestId} {
-      allow get, list: if true;
-      allow create, update, delete: if false; // TODO: Implement server-side logic for managing renewal requests.
-    }
-
-    /**
-     * @description Manages HOD approval records.
-     * @path /hodApprovals/{hodApprovalId}
-     * @allow get, list: if false; // No public access to HOD approvals.
-     * @allow create, update, delete: if false; // TODO: Implement role-based access control for HOD approvals (e.g., only admins or HODs can create/modify).
-     * @principle Restricts access to HOD approval records to authorized personnel.
-     */
-    match /hodApprovals/{hodApprovalId} {
-      allow get, list: if false;
-      allow create, update, delete: if false; // TODO: Add role-based access control.
-    }
-
-    /**
-     * @description Manages finance payment records.
-     * @path /financePayments/{financePaymentId}
-     * @allow get, list: if false; // No public access to finance payments.
-     * @allow create, update, delete: if false; // TODO: Implement role-based access control for finance payments (e.g., only finance users can create/modify).
-     * @principle Restricts access to finance payment records to authorized personnel.
-     */
-    match /financePayments/{financePaymentId} {
-      allow get, list: if false;
-      allow create, update, delete: if false; // TODO: Add role-based access control.
-    }
-
-    /**
-     * @description Manages activity logs.
-     * @path /activityLogs/{activityLogId}
-     * @allow get, list: if false; // No public access to activity logs.
-     * @allow create, update, delete: if false; // TODO: Implement role-based access control for activity logs (e.g., only admins can create/read).
-     * @principle Restricts access to activity logs to authorized personnel.
-     */
-    match /activityLogs/{activityLogId} {
-      allow get, list: if false;
-      allow create, update, delete: if false; // TODO: Add role-based access control.
+    function isSubRole(subrole) {
+      return isSignedIn() && getUserData().subrole == subrole;
     }
     
-    /**
-     * @description Manages email logs.
-     * @path /emailLogs/{emailLogId}
-     * @allow (create) Allow authenticated users to create logs. In a real app, this should be restricted to a service account or admin role.
-     * @deny (read, update, delete) Disallow public read, update, or delete access to email logs.
-     * @principle Restricts access to email logs, allowing only creation by a trusted process.
-     */
-    match /emailLogs/{emailLogId} {
-      allow create: if isSignedIn(); // Should be restricted to a service role in production
-      allow read, update, delete: if false;
+    function isDepartment(department) {
+      return isSignedIn() && getUserData().department == department;
+    }
+
+    // Users collection
+    match /users/{userId} {
+      allow read, write: if isOwner(userId);
+      allow create: if isSignedIn(); // Allow any signed in user to create their own profile
+      allow list: if isRole('admin'); // Only admins can list users
+    }
+
+    // Subscriptions collection
+    match /subscriptions/{subscriptionId} {
+      // Employee can create their own request
+      allow create: if isOwner(request.resource.data.requestedBy);
+
+      // Employee can read their own dept subscriptions, HOD their dept, admin/finance all
+      allow read: if (isOwner(resource.data.requestedBy) || 
+                      (isRole('hod') && isDepartment(resource.data.department)) ||
+                      isRole('finance') || isRole('admin'));
+                      
+      allow list: if isRole('finance') || isRole('admin');
+
+      // HOD can approve/decline requests for their department
+      allow update: if (isRole('hod') && isDepartment(request.resource.data.department) && request.resource.data.status in ['Approved by HOD', 'Declined by HOD']) ||
+                      (isRole('finance') && isSubRole('apa') && request.resource.data.status in ['Approved by APA', 'Declined by APA']) ||
+                      (isRole('finance') && isSubRole('am') && request.resource.data.status == 'Active');
+                      
+      allow delete: if isRole('admin');
+    }
+
+    // Notifications collection
+    match /notifications/{notificationId} {
+      allow create: if isSignedIn(); // Allow system/functions to create notifications
+      allow read, update, delete: if isOwner(resource.data.userId); // Users can manage their own notifications
+      allow list: if false; // Users should only be able to query their own notifications
     }
   }
 }
+
     

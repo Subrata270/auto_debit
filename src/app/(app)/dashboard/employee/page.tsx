@@ -10,13 +10,15 @@ import { Bell, FileText, PlusCircle, CheckCircle, XCircle, Info, History } from 
 import RenewRequestDialog from "./renew-request-dialog";
 import { Button } from "@/components/ui/button";
 import NewRequestDialog from "./new-request-dialog";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { motion } from "framer-motion";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Subscription } from "@/lib/types";
 import DeclineInfoDialog from "../../components/decline-info-dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import PaymentProcessDialog from "../../components/payment-process-dialog";
+import { useCollection, useFirestore } from "@/firebase";
+import { collection, query, where } from "firebase/firestore";
 
 const StatusBadge = ({ status }: { status: string }) => {
     let colorClass = 'bg-gray-200 text-gray-800';
@@ -70,12 +72,18 @@ const HistoryCard = ({ title, icon, data, bgColor, isDecline = false }: { title:
 );
 
 export default function DepartmentPOCDashboardPage() {
-    const { currentUser, subscriptions } = useAppStore();
+    const { currentUser } = useAppStore();
     const [isNewRequestOpen, setIsNewRequestOpen] = useState(false);
+    const firestore = useFirestore();
 
-    if (!currentUser) return null;
+    const subscriptionsQuery = useMemo(() => {
+        if (!currentUser) return null;
+        return query(collection(firestore, 'subscriptions'), where('department', '==', currentUser.department));
+    }, [firestore, currentUser]);
 
-    const departmentSubscriptions = subscriptions.filter(s => s.department === currentUser.department);
+    const { data: departmentSubscriptions, isLoading } = useCollection<Subscription>(subscriptionsQuery);
+
+    if (!currentUser || !departmentSubscriptions) return null;
     
     const activeSubscriptions = departmentSubscriptions.filter(s => s.status === 'Active');
     const pendingRequests = departmentSubscriptions.filter(s => s.status === 'Pending' || s.status === 'Approved by HOD' || s.status === 'Approved by APA');
@@ -112,6 +120,10 @@ export default function DepartmentPOCDashboardPage() {
         const alertDays = sub.alertDays || 10;
         return daysLeft <= alertDays;
     };
+    
+    if (isLoading) {
+        return <div>Loading subscriptions...</div>
+    }
 
     return (
         <div className="space-y-6">

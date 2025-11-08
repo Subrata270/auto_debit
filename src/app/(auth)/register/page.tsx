@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useForm } from 'react-hook-form';
@@ -24,7 +25,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
-import { Role, SubRole } from '@/lib/types';
+import { SubRole } from '@/lib/types';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 
@@ -55,17 +56,9 @@ export default function RegisterPage() {
 
   const selectedRole = form.watch('role');
 
-  const onSubmit = (values: z.infer<typeof formSchema>) => {
+  const onSubmit = async (values: z.infer<typeof formSchema>) => {
     try {
-      const userData = {
-        name: values.name,
-        email: values.email.trim().toLowerCase(),
-        password: values.password,
-        role: values.role,
-        department: values.department,
-        subrole: values.subrole as SubRole | undefined,
-      };
-      register(userData);
+      await register(values);
       toast({
         title: "Registration Successful!",
         description: `Welcome, ${values.name}! You can now log in.`,
@@ -214,3 +207,5 @@ export default function RegisterPage() {
     </motion.div>
   );
 }
+
+    

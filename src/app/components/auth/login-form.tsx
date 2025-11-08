@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useTransition } from 'react';
@@ -6,7 +7,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { motion } from 'framer-motion';
-import { ArrowRight, Loader2, LogIn } from 'lucide-react';
+import { Loader2, LogIn } from 'lucide-react';
 import { FcGoogle } from 'react-icons/fc';
 
 import { Role, SubRole } from '@/lib/types';
@@ -17,9 +18,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { mockUsers } from '@/lib/data';
 import { Separator } from '@/components/ui/separator';
-
 
 interface LoginFormProps {
   role: Role;
@@ -43,16 +42,16 @@ export default function LoginForm({ role, title, subRoleOptions }: LoginFormProp
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      email: mockUsers.find(u => u.role === role)?.email || '',
-      password: 'password',
+      email: '',
+      password: '',
       subrole: subRoleOptions ? subRoleOptions[0] : undefined,
     },
   });
 
   const onSubmit = (values: z.infer<typeof formSchema>) => {
-    startTransition(() => {
+    startTransition(async () => {
       try {
-        const user = login(values.email, values.password, role, values.subrole as SubRole);
+        const user = await login(values.email, values.password, role, values.subrole as SubRole);
         if (user) {
             setIsSuccess(true);
             toast({
@@ -193,3 +192,5 @@ export default function LoginForm({ role, title, subRoleOptions }: LoginFormProp
     </motion.div>
   );
 }
+
+    

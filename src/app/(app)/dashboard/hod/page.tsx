@@ -8,15 +8,17 @@ import { format, formatDistanceToNow } from "date-fns";
 import { AlertCircle, CheckCircle, Clock, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from "@/components/ui/dialog";
-import { Subscription } from "@/lib/types";
-import { useState } from "react";
+import { Subscription, User } from "@/lib/types";
+import { useState, useMemo } from "react";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { motion } from "framer-motion";
 import DeclineInfoDialog from "../../components/decline-info-dialog";
 import PaymentProcessDialog from "../../components/payment-process-dialog";
-import { departmentHODs } from "@/lib/data";
+import { departmentHODs } from "@/lib/pricing";
+import { useCollection, useFirestore } from "@/firebase";
+import { collection, query, where } from "firebase/firestore";
 
 const ApprovalActions = ({ subscription }: { subscription: Subscription }) => {
     const { updateSubscriptionStatus } = useAppStore();
@@ -66,7 +68,10 @@ const ApprovalActions = ({ subscription }: { subscription: Subscription }) => {
     );
 };
 
-const HistoryCard = ({ title, icon, data, bgColor, isDecline = false }: { title: string, icon: React.ReactNode, data: Subscription[], bgColor: string, isDecline?: boolean }) => (
+const HistoryCard = ({ title, icon, data, bgColor, isDecline = false }: { title: string, icon: React.ReactNode, data: Subscription[], bgColor: string, isDecline?: boolean }) => {
+    const {data: users} = useCollection<User>(collection(useFirestore(), 'users'));
+
+    return (
     <Card className={`rounded-xl shadow-md ${bgColor}`}>
         <CardHeader>
             <CardTitle className="flex items-center gap-2 text-slate-800">{icon}{title}</CardTitle>
@@ -87,7 +92,7 @@ const HistoryCard = ({ title, icon, data, bgColor, isDecline = false }: { title:
                                 <DeclineInfoDialog key={sub.id} subscription={sub}>
                                   <TableRow className="cursor-pointer hover:bg-red-100/50">
                                       <TableCell className="font-medium">{sub.toolName}</TableCell>
-                                      <TableCell>{useAppStore.getState().users.find(u => u.id === sub.requestedBy)?.name}</TableCell>
+                                      <TableCell>{users?.find(u => u.id === sub.requestedBy)?.name}</TableCell>
                                       <TableCell>{format(new Date(sub.approvalDate || sub.requestDate), "PP")}</TableCell>
                                   </TableRow>
                                 </DeclineInfoDialog>
@@ -95,7 +100,7 @@ const HistoryCard = ({ title, icon, data, bgColor, isDecline = false }: { title:
                                 <PaymentProcessDialog subscription={sub} key={sub.id}>
                                     <TableRow className="cursor-pointer hover:bg-green-100/50">
                                         <TableCell className="font-medium">{sub.toolName}</TableCell>
-                                        <TableCell>{useAppStore.getState().users.find(u => u.id === sub.requestedBy)?.name}</TableCell>
+                                        <TableCell>{users?.find(u => u.id === sub.requestedBy)?.name}</TableCell>
                                         <TableCell>{format(new Date(sub.approvalDate || sub.requestDate), "PP")}</TableCell>
                                     </TableRow>
                                 </PaymentProcessDialog>
@@ -106,14 +111,25 @@ const HistoryCard = ({ title, icon, data, bgColor, isDecline = false }: { title:
             </ScrollArea>
         </CardContent>
     </Card>
-);
+    );
+}
 
 export default function HODDashboardPage() {
-    const { currentUser, subscriptions, users } = useAppStore();
+    const { currentUser } = useAppStore();
+    const firestore = useFirestore();
 
-    if (!currentUser || currentUser.role !== 'hod') return null;
+    const subscriptionsQuery = useMemo(() => {
+        if (!currentUser) return null;
+        return query(collection(firestore, 'subscriptions'), where('department', '==', currentUser.department));
+    }, [firestore, currentUser]);
 
-    const departmentSubscriptions = subscriptions.filter(s => s.department === currentUser.department);
+    const { data: departmentSubscriptions, isLoading: subsLoading } = useCollection<Subscription>(subscriptionsQuery);
+    const { data: users, isLoading: usersLoading } = useCollection<User>(collection(firestore, 'users'));
+
+    if (!currentUser || currentUser.role !== 'hod' || subsLoading || usersLoading || !departmentSubscriptions || !users) {
+        return <div>Loading dashboard...</div>;
+    }
+
     const pendingApprovals = departmentSubscriptions.filter(s => s.status === 'Pending');
     const expiringSoon = departmentSubscriptions.filter(s => s.status === 'Active' && s.expiryDate && new Date(s.expiryDate) < new Date(Date.now() + 30 * 24 * 60 * 60 * 1000));
     
@@ -217,3 +233,5 @@ export default function HODDashboardPage() {
         </div>
     );
 }
+
+    

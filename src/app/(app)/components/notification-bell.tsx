@@ -1,7 +1,7 @@
+
 "use client"
 
 import { Bell, Check } from "lucide-react"
-
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -14,17 +14,33 @@ import {
 import { useAppStore } from "@/store/app-store"
 import { formatDistanceToNow } from "date-fns"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { useCollection, useFirestore } from "@/firebase"
+import { collection, query, where, doc, updateDoc } from "firebase/firestore"
+import { AppNotification } from "@/lib/types"
+import { useMemo } from "react"
 
 export default function NotificationBell() {
-  const { currentUser, notifications, readNotification } = useAppStore()
+  const { currentUser } = useAppStore()
+  const firestore = useFirestore();
+
+  const notificationsQuery = useMemo(() => {
+    if (!currentUser) return null;
+    return query(collection(firestore, 'notifications'), where('userId', '==', currentUser.id));
+  }, [firestore, currentUser]);
+
+  const { data: notifications, isLoading } = useCollection<AppNotification>(notificationsQuery);
   
-  if (!currentUser) return null;
+  if (!currentUser || isLoading || !notifications) return null;
+
+  const readNotification = async (notificationId: string) => {
+    const notifDoc = doc(firestore, 'notifications', notificationId);
+    await updateDoc(notifDoc, { isRead: true });
+  }
 
   const userNotifications = notifications
-    .filter(n => n.userId === currentUser.id)
-    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     
-  const unreadCount = userNotifications.filter(n => !n.isRead).length
+  const unreadCount = userNotifications.filter(n => !n.isRead).length;
 
   return (
     <DropdownMenu>
@@ -65,3 +81,5 @@ export default function NotificationBell() {
     </DropdownMenu>
   )
 }
+
+    

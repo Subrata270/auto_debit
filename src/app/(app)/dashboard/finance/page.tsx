@@ -5,24 +5,23 @@ import { useAppStore } from "@/store/app-store";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { format } from "date-fns";
-import { Check, CheckCircle, FileText, Banknote, User, Calendar as CalendarIcon, Hash } from "lucide-react";
+import { Check, CheckCircle, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from "@/components/ui/dialog";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
-import { useState } from "react";
-import { Subscription } from "@/lib/types";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { motion } from "framer-motion";
+import { useState, useMemo } from "react";
+import { Subscription, User } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import DeclineInfoDialog from "../../components/decline-info-dialog";
-import PaymentProcessDialog from "../../components/payment-process-dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
+import { useCollection, useFirestore } from "@/firebase";
+import { collection, query, where } from "firebase/firestore";
+import PaymentProcessDialog from "../../components/payment-process-dialog";
 
 const APAApprovalActions = ({ subscription }: { subscription: Subscription }) => {
     const { updateFinanceStatus, currentUser } = useAppStore();
@@ -73,8 +72,8 @@ const PaymentFormDialog = ({ subscription }: { subscription: Subscription }) => 
     const [paymentDate, setPaymentDate] = useState<Date | undefined>(new Date());
 
     const handlePayment = () => {
-        if (!currentUser) return;
-        markAsPaid(subscription.id, currentUser.id, { mode: paymentMode, transactionId });
+        if (!currentUser || !paymentDate) return;
+        markAsPaid(subscription.id, currentUser.id, { mode: paymentMode, transactionId, date: paymentDate.toISOString() });
         toast({
             title: "Payment Processed",
             description: `Payment for ${subscription.toolName} has been recorded.`,
@@ -112,7 +111,6 @@ const PaymentFormDialog = ({ subscription }: { subscription: Subscription }) => 
                          <Popover>
                             <PopoverTrigger asChild>
                                 <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal", !paymentDate && "text-muted-foreground")}>
-                                    <CalendarIcon className="mr-2 h-4 w-4" />
                                     {paymentDate ? format(paymentDate, "PPP") : <span>Pick a date</span>}
                                 </Button>
                             </PopoverTrigger>
@@ -134,13 +132,26 @@ const PaymentFormDialog = ({ subscription }: { subscription: Subscription }) => 
 };
 
 const APADashboard = () => {
-    const { currentUser, subscriptions, users } = useAppStore();
+    const { currentUser } = useAppStore();
+    const firestore = useFirestore();
     
-    if (!currentUser) return null;
+    const pendingApaQuery = useMemo(() => {
+        if (!currentUser) return null;
+        return query(collection(firestore, 'subscriptions'), where('status', '==', 'Approved by HOD'), where('department', '==', currentUser.department));
+    }, [firestore, currentUser]);
 
-    const departmentSubscriptions = subscriptions.filter(s => s.department === currentUser.department);
-    const pendingApaApproval = departmentSubscriptions.filter(s => s.status === 'Approved by HOD');
-    const history = departmentSubscriptions.filter(s => s.status === 'Approved by APA' || s.status === 'Declined by APA');
+    const historyQuery = useMemo(() => {
+        if (!currentUser) return null;
+        return query(collection(firestore, 'subscriptions'), where('apaApprovedBy', '==', currentUser.id));
+    }, [firestore, currentUser]);
+
+    const { data: pendingApaApproval, isLoading: pendingLoading } = useCollection<Subscription>(pendingApaQuery);
+    const { data: history, isLoading: historyLoading } = useCollection<Subscription>(historyQuery);
+    const { data: users, isLoading: usersLoading } = useCollection<User>(collection(firestore, 'users'));
+    
+    if (!currentUser || pendingLoading || historyLoading || usersLoading || !pendingApaApproval || !history || !users) {
+         return <div>Loading APA dashboard...</div>;
+    }
     
     const getUserName = (userId: string) => users.find(u => u.id === userId)?.name || 'Unknown';
 
@@ -203,12 +214,20 @@ const APADashboard = () => {
 };
 
 const AMDashboard = () => {
-    const { currentUser, subscriptions, users } = useAppStore();
+    const { currentUser } = useAppStore();
+    const firestore = useFirestore();
 
-    if (!currentUser) return null;
+    const pendingPaymentQuery = useMemo(() => query(collection(firestore, 'subscriptions'), where('status', '==', 'Approved by APA')), [firestore]);
+    const paymentHistoryQuery = useMemo(() => query(collection(firestore, 'subscriptions'), where('paidBy', '==', currentUser?.id)), [firestore, currentUser]);
 
-    const pendingPayment = subscriptions.filter(s => s.status === 'Approved by APA');
-    const paymentHistory = subscriptions.filter(s => s.status === 'Payment Completed' || s.status === 'Payment Declined');
+    const { data: pendingPayment, isLoading: pendingLoading } = useCollection<Subscription>(pendingPaymentQuery);
+    const { data: paymentHistory, isLoading: historyLoading } = useCollection<Subscription>(paymentHistoryQuery);
+    const { data: users, isLoading: usersLoading } = useCollection<User>(collection(firestore, 'users'));
+
+    if (!currentUser || pendingLoading || historyLoading || usersLoading || !pendingPayment || !paymentHistory || !users) {
+        return <div>Loading AM dashboard...</div>;
+    }
+
     const getUserName = (userId: string) => users.find(u => u.id === userId)?.name || 'Unknown';
 
     return (
@@ -291,3 +310,5 @@ export default function FinanceDashboardPage() {
         </div>
     );
 }
+
+    

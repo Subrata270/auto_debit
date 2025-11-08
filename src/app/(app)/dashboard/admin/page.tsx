@@ -7,14 +7,16 @@ import { BarChart, LineChart, PieChart, Users, Wallet, RefreshCw, CheckCircle, X
 import { ResponsiveContainer, Bar, XAxis, YAxis, Tooltip, Legend, Line, Pie } from 'recharts';
 import { ChartContainer, ChartTooltipContent } from "@/components/ui/chart";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Subscription, departmentOptions } from "@/lib/types";
+import { Subscription, departmentOptions, User } from "@/lib/types";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { format } from "date-fns";
 import { motion } from "framer-motion";
 import DeclineInfoDialog from "../../components/decline-info-dialog";
 import PaymentProcessDialog from "../../components/payment-process-dialog";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useCollection, useFirestore } from "@/firebase";
+import { collection, query, where } from "firebase/firestore";
 
 const chartConfig = {
   cost: {
@@ -27,7 +29,10 @@ const chartConfig = {
   },
 };
 
-const HistoryCard = ({ title, icon, data, bgColor, isDecline = false }: { title: string, icon: React.ReactNode, data: Subscription[], bgColor: string, isDecline?: boolean }) => (
+const HistoryCard = ({ title, icon, data, bgColor, isDecline = false }: { title: string, icon: React.ReactNode, data: Subscription[], bgColor: string, isDecline?: boolean }) => {
+    const {data: users} = useCollection<User>(collection(useFirestore(), 'users'));
+    
+    return (
     <Card className={`rounded-xl shadow-md ${bgColor}`}>
         <CardHeader>
             <CardTitle className="flex items-center gap-2 text-slate-800">{icon}{title}</CardTitle>
@@ -48,7 +53,7 @@ const HistoryCard = ({ title, icon, data, bgColor, isDecline = false }: { title:
                              <DeclineInfoDialog key={sub.id} subscription={sub}>
                                <TableRow className="cursor-pointer hover:bg-red-100/50">
                                    <TableCell className="font-medium">{sub.toolName}</TableCell>
-                                   <TableCell>{useAppStore.getState().users.find(u => u.id === sub.requestedBy)?.name}</TableCell>
+                                   <TableCell>{users?.find(u => u.id === sub.requestedBy)?.name}</TableCell>
                                    <TableCell>{format(new Date(sub.approvalDate || sub.requestDate), "PP")}</TableCell>
                                </TableRow>
                              </DeclineInfoDialog>
@@ -56,7 +61,7 @@ const HistoryCard = ({ title, icon, data, bgColor, isDecline = false }: { title:
                             <PaymentProcessDialog subscription={sub} key={sub.id}>
                                 <TableRow className="cursor-pointer hover:bg-green-100/50">
                                     <TableCell className="font-medium">{sub.toolName}</TableCell>
-                                    <TableCell>{useAppStore.getState().users.find(u => u.id === sub.requestedBy)?.name}</TableCell>
+                                    <TableCell>{users?.find(u => u.id === sub.requestedBy)?.name}</TableCell>
                                     <TableCell>{format(new Date(sub.approvalDate || sub.requestDate), "PP")}</TableCell>
                                 </TableRow>
                             </PaymentProcessDialog>
@@ -67,13 +72,21 @@ const HistoryCard = ({ title, icon, data, bgColor, isDecline = false }: { title:
             </ScrollArea>
         </CardContent>
     </Card>
-);
+    )
+};
 
 export default function AdminDashboardPage() {
-    const { currentUser, subscriptions, users } = useAppStore();
+    const { currentUser } = useAppStore();
+    const firestore = useFirestore();
+    const { data: subscriptions, isLoading: subsLoading } = useCollection<Subscription>(collection(firestore, 'subscriptions'));
+    const { data: users, isLoading: usersLoading } = useCollection<User>(collection(firestore, 'users'));
     const [selectedDepartment, setSelectedDepartment] = useState('All');
 
     if (!currentUser || currentUser.role !== 'admin') return null;
+    
+    if (subsLoading || usersLoading || !subscriptions || !users) {
+        return <div>Loading dashboard...</div>
+    }
 
     const filteredSubscriptions = selectedDepartment === 'All' 
         ? subscriptions 
@@ -106,8 +119,8 @@ export default function AdminDashboardPage() {
       }, {} as Record<string, { name: string, cost: number }>);
     const spendingData = Object.values(monthlySpendingData).slice(-6); // Last 6 months
     
-    const approvedHistory = filteredSubscriptions.filter(s => s.status === 'Active' || s.status === 'Expired' || s.status === 'Approved');
-    const declinedHistory = filteredSubscriptions.filter(s => s.status === 'Declined');
+    const approvedHistory = filteredSubscriptions.filter(s => s.status === 'Active' || s.status === 'Expired' || s.status === 'Approved by APA' || s.status === 'Payment Completed');
+    const declinedHistory = filteredSubscriptions.filter(s => s.status === 'Declined by HOD' || s.status === 'Declined by APA');
     const totalUsers = selectedDepartment === 'All' ? users.length : users.filter(u => u.department === selectedDepartment).length;
 
     return (
