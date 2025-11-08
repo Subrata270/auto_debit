@@ -32,7 +32,6 @@ service cloud.firestore {
     // Users collection
     match /users/{userId} {
       // Allow any authenticated user to create their own document.
-      // This is the most direct way to ensure registration works.
       allow create: if request.auth != null && request.auth.uid == userId;
 
       // Allow a user to read or update their own document after creation.
