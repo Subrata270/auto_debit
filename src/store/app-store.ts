@@ -30,7 +30,7 @@ export const useAppStore = create<AppState>()(
       currentUser: null,
       setCurrentUser: (user) => set({ currentUser: user }),
 
-      register: async (userData) => {
+      register: async (userData: Omit<User, 'id' | 'googleUid'>) => {
         if (!userData.email) {
           throw new Error('Email is required.');
         }
@@ -59,22 +59,17 @@ export const useAppStore = create<AppState>()(
           // 3. Create document reference
           const userDocRef = doc(firestore, "users", firebaseUser.uid);
 
-          // 4. Log everything before writing to Firestore
-          console.log("--- Firestore Write Debug ---");
-          console.log("Firebase Auth User:", firebaseUser);
-          console.log("Data to be written:", newUser);
-          console.log("Firestore Document Path:", userDocRef.path);
-          debugger; // Execution will pause here if dev tools are open
-
-          // 5. Write to Firestore
+          // 4. Write to Firestore
           await setDoc(userDocRef, newUser);
 
-          console.log("User profile successfully written to Firestore.");
-
+          // 5. Set current user in state
           set({ currentUser: newUser });
 
         } catch (error: any) {
           console.error("Full registration error:", error);
+          if (error.code === 'auth/email-already-in-use') {
+            throw new Error('This email address is already registered. Please use a different email or log in.');
+          }
           throw new Error(`Registration failed: ${error.message}`);
         }
       },
@@ -312,5 +307,3 @@ export const useAppStore = create<AppState>()(
     }
   )
 );
-
-    
