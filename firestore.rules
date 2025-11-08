@@ -31,9 +31,14 @@ service cloud.firestore {
 
     // Users collection
     match /users/{userId} {
-      allow read, write: if isOwner(userId);
-      allow create: if isSignedIn(); // Allow any signed in user to create their own profile
-      allow list: if isRole('admin'); // Only admins can list users
+      // Allow a user to create their own document.
+      allow create: if isOwner(userId);
+
+      // Allow a user to read or update their own document.
+      allow read, update: if isOwner(userId);
+      
+      // Only admins can list or delete users.
+      allow list, delete: if isRole('admin');
     }
 
     // Subscriptions collection
@@ -64,5 +69,3 @@ service cloud.firestore {
     }
   }
 }
-
-    
