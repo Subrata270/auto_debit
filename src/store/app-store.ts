@@ -33,46 +33,44 @@ export const useAppStore = create<AppState>()(
       setCurrentUser: (user) => set({ currentUser: user }),
       
       register: async (userData) => {
+        // Add robust validation at the start of the function.
+        if (!userData.password || userData.password.length < 6) {
+          throw new Error('Password is required and must be at least 6 characters long.');
+        }
+        if (!userData.email) {
+            throw new Error('Email is required.');
+        }
+
         const { auth, firestore } = initializeFirebase();
         const normalizedEmail = userData.email.trim().toLowerCase();
 
-        // 1. Create user in Firebase Auth
-        const userCredential = await createUserWithEmailAndPassword(auth, normalizedEmail, userData.password!);
-        const firebaseUser = userCredential.user;
-
-        // 2. Prepare user document for Firestore
-        const newUser: Omit<User, 'password'> = {
-            id: firebaseUser.uid,
-            name: userData.name,
-            email: normalizedEmail,
-            role: userData.role,
-            department: userData.department,
-            subrole: userData.role === 'finance' ? (userData.subrole || null) : null,
-        };
-
-        // This field should not be present for email/password sign up
-        // if (firebaseUser.providerData.some(p => p.providerId === 'google.com')) {
-        //     (newUser as User).googleUid = firebaseUser.uid;
-        // }
-
-        // 3. Save user document to Firestore and handle errors
         try {
+            // 1. Create user in Firebase Auth
+            const userCredential = await createUserWithEmailAndPassword(auth, normalizedEmail, userData.password);
+            const firebaseUser = userCredential.user;
+
+            // 2. Prepare user document for Firestore
+            const newUser: Omit<User, 'password' | 'googleUid'> = {
+                id: firebaseUser.uid,
+                name: userData.name,
+                email: normalizedEmail,
+                role: userData.role,
+                department: userData.department,
+                subrole: userData.role === 'finance' ? (userData.subrole || null) : null,
+            };
+
+            // 3. Save user document to Firestore
             const userDocRef = doc(firestore, "users", firebaseUser.uid);
             await setDoc(userDocRef, newUser);
 
             // 4. Optimistically set current user in the UI
             set({ currentUser: newUser as User });
 
-        } catch (error) {
-            console.error("Firestore write failed:", error);
-            const permissionError = new FirestorePermissionError({
-                path: `users/${firebaseUser.uid}`,
-                operation: 'create',
-                requestResourceData: newUser
-            });
-            errorEmitter.emit('permission-error', permissionError);
-            // Also re-throw a generic error to be caught by the UI form
-            throw new Error('Firestore permission denied while creating user profile.');
+        } catch (error: any) {
+            // Catch Auth errors (like email-already-in-use) or Firestore errors
+            console.error("Registration failed:", error);
+            // Re-throw the original error to be caught by the UI form
+            throw error;
         }
       },
 
@@ -308,5 +306,3 @@ export const useAppStore = create<AppState>()(
     }
   )
 );
-
-    
