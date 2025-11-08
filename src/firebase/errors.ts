@@ -58,7 +58,7 @@ function buildAuthObject(currentUser: User | null): FirebaseAuthObject | null {
         return acc;
       }, {} as Record<string, string[]>),
       sign_in_provider: currentUser.providerData[0]?.providerId || 'custom',
-      tenant: currentUser.tenantId,
+      tenant: null, // Explicitly set to null for standard apps
     },
   };
 

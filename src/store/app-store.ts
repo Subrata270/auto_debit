@@ -7,7 +7,9 @@ import { User, Subscription, AppNotification, Role, SubRole } from '@/lib/types'
 import { add, formatISO } from 'date-fns';
 import { getAuth, signInWithPopup, GoogleAuthProvider, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from 'firebase/auth';
 import { initializeFirebase } from '@/firebase';
-import { collection, doc, setDoc, getDoc, addDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, doc, setDoc, getDoc, addDoc, updateDoc } from 'firebase/firestore';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
 
 interface AppState {
   currentUser: User | null;
@@ -34,30 +36,43 @@ export const useAppStore = create<AppState>()(
         const { auth, firestore } = initializeFirebase();
         const normalizedEmail = userData.email.trim().toLowerCase();
 
-        const userCredential = await createUserWithEmailAndPassword(auth, normalizedEmail, userData.password!);
-        const firebaseUser = userCredential.user;
+        try {
+          const userCredential = await createUserWithEmailAndPassword(auth, normalizedEmail, userData.password!);
+          const firebaseUser = userCredential.user;
 
-        const newUser: Omit<User, 'googleUid'> & { googleUid?: string } = {
-          id: firebaseUser.uid,
-          name: userData.name,
-          email: normalizedEmail,
-          role: userData.role,
-          department: userData.department,
-          subrole: userData.role === 'finance' ? (userData.subrole || null) : null,
-        };
+          const newUser: Omit<User, 'password' | 'googleUid'> = {
+            id: firebaseUser.uid,
+            name: userData.name,
+            email: normalizedEmail,
+            role: userData.role,
+            department: userData.department,
+            subrole: userData.role === 'finance' ? (userData.subrole || null) : null,
+          };
+          
+          const userDocRef = doc(firestore, "users", firebaseUser.uid);
 
-        const userForFirestore: any = { ...newUser };
-        // Ensure no undefined fields are sent to Firestore
-        Object.keys(userForFirestore).forEach(key => {
-            if (userForFirestore[key] === undefined) {
-                delete userForFirestore[key];
-            }
-        });
+          // Use .catch() for detailed error reporting instead of try/catch
+          setDoc(userDocRef, newUser).catch(error => {
+              const permissionError = new FirestorePermissionError({
+                  path: userDocRef.path,
+                  operation: 'create',
+                  requestResourceData: newUser
+              });
+              errorEmitter.emit('permission-error', permissionError);
+              
+              // Also re-throw a generic error to be caught by the UI form
+              throw new Error('Firestore permission denied while creating user profile.');
+          });
 
+          // Optimistically set the current user in the UI
+          set({ currentUser: newUser as User });
 
-        await setDoc(doc(firestore, "users", firebaseUser.uid), userForFirestore);
-
-        set({ currentUser: newUser as User });
+        } catch (error: any) {
+          // This will catch auth errors (like email-already-in-use) 
+          // or the re-thrown error from the setDoc promise.
+          console.error("Registration failed:", error.message);
+          throw error; // Re-throw to be handled by the UI
+        }
       },
 
       login: async (email, password, role, subrole = null) => {
@@ -69,6 +84,7 @@ export const useAppStore = create<AppState>()(
 
         const userDoc = await getDoc(doc(firestore, "users", firebaseUser.uid));
         if (!userDoc.exists()) {
+            await signOut(auth);
             throw new Error("User profile not found in database.");
         }
 
