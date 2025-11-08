@@ -59,25 +59,27 @@ export const useAppStore = create<AppState>()(
           // 3. Create document reference
           const userDocRef = doc(firestore, "users", firebaseUser.uid);
       
-          // 4. Write to Firestore with detailed error handling
-          setDoc(userDocRef, newUser)
-            .then(() => {
-              // 5. Set current user in state on successful write
-              set({ currentUser: newUser as User });
-            })
-            .catch(error => {
-              console.error("Firestore write error:", error);
-              // Emit a detailed, contextual error for debugging
-              const permissionError = new FirestorePermissionError({
-                path: userDocRef.path,
-                operation: 'create',
-                requestResourceData: newUser,
-              });
-              errorEmitter.emit('permission-error', permissionError);
+          // 4. Await the Firestore write operation inside a try/catch
+          try {
+            await setDoc(userDocRef, newUser);
+            // 5. Set current user in state ONLY on successful write
+            set({ currentUser: newUser as User });
+          } catch (firestoreError) {
+            console.error("Firestore write error:", firestoreError);
+            // Throw a new, detailed error for the UI to catch
+            throw new FirestorePermissionError({
+              path: userDocRef.path,
+              operation: 'create',
+              requestResourceData: newUser,
             });
+          }
       
         } catch (error: any) {
           console.error("Full registration error:", error);
+          if (error instanceof FirestorePermissionError) {
+            // Re-throw the custom error to be caught by the form
+            throw error;
+          }
           if (error.code === 'auth/email-already-in-use') {
             throw new Error('This email address is already registered. Please use a different email or log in.');
           }
@@ -92,7 +94,6 @@ export const useAppStore = create<AppState>()(
 
         const userCredential = await signInWithEmailAndPassword(auth, normalizedEmail, password);
         const firebaseUser = userCredential.user;
-        console.log('UID :', firebaseUser.uid);
 
         const userDoc = await getDoc(doc(firestore, "users", firebaseUser.uid));
         if (!userDoc.exists()) {
@@ -319,5 +320,3 @@ export const useAppStore = create<AppState>()(
     }
   )
 );
-
-    
