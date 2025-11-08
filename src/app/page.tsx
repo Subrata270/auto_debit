@@ -1,12 +1,15 @@
 
 "use client"
 import Link from "next/link"
-import { ArrowRight, Briefcase, Building, ShieldCheck, User } from "lucide-react"
+import { ArrowRight, Briefcase, Building, ShieldCheck, User, Database } from "lucide-react"
 import { motion } from "framer-motion"
+import { doc, setDoc } from "firebase/firestore";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import Logo from "@/components/logo"
 import { Button } from "@/components/ui/button"
+import { useFirestore, FirebaseClientProvider } from "@/firebase";
+import { useToast } from "@/hooks/use-toast";
 
 const portals = [
   {
@@ -29,7 +32,36 @@ const portals = [
   },
 ]
 
-export default function Home() {
+function HomePageContent() {
+  const firestore = useFirestore();
+  const { toast } = useToast();
+
+  const handleCreateSampleUser = async () => {
+    try {
+      const userRef = doc(firestore, "users", "sample-user-id");
+      const sampleUser = {
+        id: "sample-user-id",
+        name: "Sample User",
+        email: "sample@example.com",
+        role: "employee",
+        department: "Engineering",
+        subrole: null,
+      };
+      await setDoc(userRef, sampleUser);
+      toast({
+        title: "Success!",
+        description: "Sample user created and 'users' collection should now exist.",
+      });
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Error Creating Sample User",
+        description: error.message,
+      });
+    }
+  };
+
+
   const FADE_IN_ANIMATION_VARIANTS = {
     hidden: { opacity: 0, y: 10 },
     show: { opacity: 1, y: 0, transition: { type: "spring" } },
@@ -103,7 +135,23 @@ export default function Home() {
             </motion.div>
           ))}
         </motion.div>
+         <div className="mt-12 text-center">
+            <Button variant="outline" onClick={handleCreateSampleUser}>
+              <Database className="mr-2 h-4 w-4" />
+              Create Sample User Collection
+            </Button>
+            <p className="text-xs text-muted-foreground mt-2">Click this to create the 'users' collection in Firestore.</p>
+        </div>
       </div>
     </main>
+  )
+}
+
+
+export default function Home() {
+  return (
+    <FirebaseClientProvider>
+      <HomePageContent />
+    </FirebaseClientProvider>
   )
 }
