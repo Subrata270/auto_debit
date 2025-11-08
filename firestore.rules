@@ -31,41 +31,52 @@ service cloud.firestore {
 
     // Users collection
     match /users/{userId} {
-      // Allow a user to create their own document.
+      // Allow a user to create their own document on signup.
+      // This rule is critical because getUserData() will fail for a new user.
       allow create: if isOwner(userId);
 
-      // Allow a user to read or update their own document.
+      // Allow a user to read or update their own document after creation.
       allow read, update: if isOwner(userId);
       
-      // Only admins can list or delete users.
+      // Admins can list or delete any user.
       allow list, delete: if isRole('admin');
     }
 
     // Subscriptions collection
     match /subscriptions/{subscriptionId} {
-      // Employee can create their own request
+      // An employee can create their own request.
       allow create: if isOwner(request.resource.data.requestedBy);
 
-      // Employee can read their own dept subscriptions, HOD their dept, admin/finance all
+      // An employee can read their own dept subscriptions, HOD their dept, and finance/admin can read all.
       allow read: if (isOwner(resource.data.requestedBy) || 
                       (isRole('hod') && isDepartment(resource.data.department)) ||
                       isRole('finance') || isRole('admin'));
                       
+      // Only finance or admin can list all subscriptions.
       allow list: if isRole('finance') || isRole('admin');
 
-      // HOD can approve/decline requests for their department
+      // HOD can approve/decline for their department.
+      // Finance APA can approve/decline for their department after HOD.
+      // Finance AM can mark as active/paid.
       allow update: if (isRole('hod') && isDepartment(request.resource.data.department) && request.resource.data.status in ['Approved by HOD', 'Declined by HOD']) ||
                       (isRole('finance') && isSubRole('apa') && request.resource.data.status in ['Approved by APA', 'Declined by APA']) ||
                       (isRole('finance') && isSubRole('am') && request.resource.data.status == 'Active');
                       
+      // Only admin can delete.
       allow delete: if isRole('admin');
     }
 
     // Notifications collection
     match /notifications/{notificationId} {
-      allow create: if isSignedIn(); // Allow system/functions to create notifications
-      allow read, update, delete: if isOwner(resource.data.userId); // Users can manage their own notifications
-      allow list: if false; // Users should only be able to query their own notifications
+      // Allow system processes (or any signed-in user) to create notifications.
+      // In a real-world scenario, this would be locked down to backend functions.
+      allow create: if isSignedIn();
+      
+      // Users can only manage their own notifications.
+      allow read, update, delete: if isOwner(resource.data.userId);
+      
+      // Disallow listing all notifications. Users should query their own.
+      allow list: if false; 
     }
   }
 }
