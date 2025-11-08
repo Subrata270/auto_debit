@@ -31,20 +31,22 @@ export const useAppStore = create<AppState>()(
       setCurrentUser: (user) => set({ currentUser: user }),
 
       register: async (userData: Omit<User, 'id' | 'googleUid'>) => {
-        if (!userData.email) {
+        const { auth, firestore } = initializeFirebase();
+        const normalizedEmail = (userData.email || '').trim().toLowerCase();
+      
+        if (!normalizedEmail) {
           throw new Error('Email is required.');
         }
         if (!userData.password || userData.password.length < 6) {
           throw new Error('Password is required and must be at least 6 characters long.');
         }
       
-        const { auth, firestore } = initializeFirebase();
-        const normalizedEmail = userData.email.trim().toLowerCase();
-      
         try {
+          // 1. Create user in Firebase Auth
           const userCredential = await createUserWithEmailAndPassword(auth, normalizedEmail, userData.password);
           const firebaseUser = userCredential.user;
       
+          // 2. Prepare user data for Firestore
           const newUser: Omit<User, 'password'> = {
             id: firebaseUser.uid,
             name: userData.name,
@@ -54,25 +56,38 @@ export const useAppStore = create<AppState>()(
             subrole: userData.role === 'finance' ? (userData.subrole || 'apa') : null,
           };
       
+          // 3. Save user data to Firestore
           const userDocRef = doc(firestore, "users", firebaseUser.uid);
       
-          setDoc(userDocRef, newUser)
-            .then(() => {
-              set({ currentUser: newUser as User });
-            })
-            .catch((firestoreError) => {
-              const permissionError = new FirestorePermissionError({
-                path: userDocRef.path,
-                operation: 'create',
-                requestResourceData: newUser,
-              });
-              errorEmitter.emit('permission-error', permissionError);
+          try {
+            await setDoc(userDocRef, newUser);
+            // This is optimistic. If setDoc fails, this line will still be reached in some async scenarios.
+            // But with await, we ensure it only proceeds on success.
+            set({ currentUser: newUser as User });
+            toast({
+              title: "Registration Successful!",
+              description: `Welcome, ${newUser.name}! You can now log in.`,
             });
+          } catch (firestoreError: any) {
+            console.error("Firestore write error:", firestoreError);
+            // Throw a new, detailed error for the UI to catch
+            throw new FirestorePermissionError({
+              path: userDocRef.path,
+              operation: 'create',
+              requestResourceData: newUser,
+            });
+          }
       
         } catch (error: any) {
+          // Catch errors from both createUserWithEmailAndPassword and FirestorePermissionError
+          if (error instanceof FirestorePermissionError) {
+            // Re-throw the custom error to be caught by the UI
+            throw error;
+          }
           if (error.code === 'auth/email-already-in-use') {
             throw new Error('This email address is already registered. Please use a different email or log in.');
           }
+          // For other auth errors, throw a generic message
           throw new Error(`Registration failed: ${error.message}`);
         }
       },

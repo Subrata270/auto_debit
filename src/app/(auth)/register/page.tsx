@@ -59,10 +59,7 @@ export default function RegisterPage() {
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     try {
       await register(values);
-      toast({
-        title: "Registration Successful!",
-        description: `Welcome, ${values.name}! You can now log in.`,
-      });
+      // The success toast is now handled within the register function to avoid race conditions.
       router.push(`/login/${values.role}`);
     } catch (error: any) {
       toast({
