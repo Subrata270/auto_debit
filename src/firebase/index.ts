@@ -9,8 +9,6 @@ import { getFirestore } from 'firebase/firestore'
 export function initializeFirebase() {
   const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
   const auth = getAuth(app);
-  // This line is critical for fixing the auth/invalid-continue-uri error in this specific environment.
-  auth.tenantId = 'autosubscription-6c04a.firebaseapp.com';
 
   return {
     firebaseApp: app,
