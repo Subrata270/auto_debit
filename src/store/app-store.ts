@@ -42,11 +42,9 @@ export const useAppStore = create<AppState>()(
         const normalizedEmail = userData.email.trim().toLowerCase();
       
         try {
-          // 1. Create user in Firebase Auth
           const userCredential = await createUserWithEmailAndPassword(auth, normalizedEmail, userData.password);
           const firebaseUser = userCredential.user;
       
-          // 2. Prepare user data for Firestore
           const newUser: Omit<User, 'password'> = {
             id: firebaseUser.uid,
             name: userData.name,
@@ -56,34 +54,25 @@ export const useAppStore = create<AppState>()(
             subrole: userData.role === 'finance' ? (userData.subrole || 'apa') : null,
           };
       
-          // 3. Create document reference
           const userDocRef = doc(firestore, "users", firebaseUser.uid);
       
-          // 4. Await the Firestore write operation inside a try/catch
-          try {
-            await setDoc(userDocRef, newUser);
-            // 5. Set current user in state ONLY on successful write
-            set({ currentUser: newUser as User });
-          } catch (firestoreError) {
-            console.error("Firestore write error:", firestoreError);
-            // Throw a new, detailed error for the UI to catch
-            throw new FirestorePermissionError({
-              path: userDocRef.path,
-              operation: 'create',
-              requestResourceData: newUser,
+          setDoc(userDocRef, newUser)
+            .then(() => {
+              set({ currentUser: newUser as User });
+            })
+            .catch((firestoreError) => {
+              const permissionError = new FirestorePermissionError({
+                path: userDocRef.path,
+                operation: 'create',
+                requestResourceData: newUser,
+              });
+              errorEmitter.emit('permission-error', permissionError);
             });
-          }
       
         } catch (error: any) {
-          console.error("Full registration error:", error);
-          if (error instanceof FirestorePermissionError) {
-            // Re-throw the custom error to be caught by the form
-            throw error;
-          }
           if (error.code === 'auth/email-already-in-use') {
             throw new Error('This email address is already registered. Please use a different email or log in.');
           }
-          // Re-throw other auth errors to be caught by the form
           throw new Error(`Registration failed: ${error.message}`);
         }
       },
@@ -320,3 +309,5 @@ export const useAppStore = create<AppState>()(
     }
   )
 );
+
+    
