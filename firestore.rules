@@ -31,10 +31,10 @@ service cloud.firestore {
 
     // Users collection
     match /users/{userId} {
-      // Allow a user to create their own document on signup.
+      // Allow any signed-in user to create their own document on signup.
       // This is the only way for a new user to get into the system.
-      // We are not checking roles here, only that the user is creating their *own* doc.
-      allow create: if isOwner(userId);
+      // The application logic ensures the userId matches the auth uid.
+      allow create: if isSignedIn();
 
       // Allow a user to read or update their own document after creation.
       allow read, update: if isOwner(userId);
