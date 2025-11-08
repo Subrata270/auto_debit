@@ -1,25 +1,63 @@
 "use client";
 
-import { create } from 'zustand';
-import { persist, createJSONStorage } from 'zustand/middleware';
-import { User, Subscription, AppNotification, Role, SubRole, SubscriptionStatus } from '@/lib/types';
-import { mockUsers, mockSubscriptions, mockNotifications } from '@/lib/data';
-import { add, formatISO } from 'date-fns';
+import { create } from "zustand";
+import { persist, createJSONStorage } from "zustand/middleware";
+import {
+  User,
+  Subscription,
+  AppNotification,
+  Role,
+  SubRole,
+  SubscriptionStatus,
+} from "@/lib/types";
+import { mockUsers, mockSubscriptions, mockNotifications } from "@/lib/data";
+import { add, formatISO } from "date-fns";
+import { registerUser, loginUser, logoutUser } from "@/lib/auth";
+import {
+  addSubscriptionRequest as addSubscriptionToFirestore,
+  getAllSubscriptions,
+  updateSubscriptionStatus as updateSubscriptionStatusInFirestore,
+  markSubscriptionAsPaid as markSubscriptionAsPaidInFirestore,
+  renewSubscription as renewSubscriptionInFirestore,
+  addNotification as addNotificationToFirestore,
+  getNotificationsByUser,
+  markNotificationAsRead,
+  getUsersByRole,
+} from "@/lib/firestore";
 
 interface AppState {
   users: User[];
   subscriptions: Subscription[];
   notifications: AppNotification[];
   currentUser: User | null;
-  register: (user: Omit<User, 'id' | 'subrole'>) => void;
-  login: (email: string, password: string, role: Role, subrole?: SubRole) => User | null;
-  logout: () => void;
-  addSubscriptionRequest: (request: Omit<Subscription, 'id' | 'status' | 'requestDate'>) => void;
-  renewSubscription: (subscriptionId: string, renewalDuration: number, updatedCost: number, remarks: string) => void;
-  updateSubscriptionStatus: (subscriptionId: string, status: SubscriptionStatus, approverId?: string) => void;
-  markAsPaid: (subscriptionId: string, payerId: string) => void;
-  addNotification: (userId: string, message: string) => void;
-  readNotification: (notificationId: string) => void;
+  isLoading: boolean;
+  register: (user: Omit<User, "id" | "subrole">) => Promise<void>;
+  login: (
+    email: string,
+    password: string,
+    role: Role,
+    subrole?: SubRole
+  ) => Promise<User | null>;
+  logout: () => Promise<void>;
+  loadSubscriptions: () => Promise<void>;
+  loadNotifications: (userId: string) => Promise<void>;
+  addSubscriptionRequest: (
+    request: Omit<Subscription, "id" | "status" | "requestDate">
+  ) => Promise<void>;
+  renewSubscription: (
+    subscriptionId: string,
+    renewalDuration: number,
+    updatedCost: number,
+    remarks: string
+  ) => Promise<void>;
+  updateSubscriptionStatus: (
+    subscriptionId: string,
+    status: SubscriptionStatus,
+    approverId?: string
+  ) => Promise<void>;
+  markAsPaid: (subscriptionId: string, payerId: string) => Promise<void>;
+  addNotification: (userId: string, message: string) => Promise<void>;
+  readNotification: (notificationId: string) => Promise<void>;
 }
 
 const generateId = () => `id-${new Date().getTime()}`;
@@ -31,175 +69,271 @@ export const useAppStore = create<AppState>()(
       subscriptions: mockSubscriptions,
       notifications: mockNotifications,
       currentUser: null,
+      isLoading: false,
 
-      register: (userData) => {
-        const { users } = get();
-        const existingUser = users.find(u => u.email === userData.email);
-        if (existingUser) {
-          throw new Error('An account with this email already exists.');
-        }
+      register: async (userData) => {
+        try {
+          set({ isLoading: true });
 
-        const newUser: User = {
-          ...userData,
-          id: generateId(),
-          subrole: null, // Subrole can be assigned later if needed
-        };
+          if (!userData.email || !userData.password) {
+            throw new Error("Email and password are required");
+          }
 
-        set(state => ({
-          users: [...state.users, newUser],
-        }));
-      },
-
-      login: (email, password, role, subrole = null) => {
-        const user = get().users.find(
-          (u) =>
-            u.email === email &&
-            u.password === password &&
-            u.role === role &&
-            (role !== 'finance' || u.subrole === subrole)
-        );
-
-        if (user) {
-          set({ currentUser: user });
-          get().addNotification(user.id, `Welcome back, ${user.name}! You've successfully logged in.`);
-          return user;
-        }
-        return null;
-      },
-
-      logout: () => {
-        set({ currentUser: null });
-      },
-      
-      addSubscriptionRequest: (request) => {
-        const currentUser = get().currentUser;
-        if (!currentUser) return;
-
-        const newSubscription: Subscription = {
-          ...request,
-          id: generateId(),
-          status: 'Pending',
-          requestDate: formatISO(new Date()),
-          requestedBy: currentUser.id,
-        };
-
-        set((state) => ({
-          subscriptions: [...state.subscriptions, newSubscription],
-        }));
-
-        // Notify requester and HOD
-        get().addNotification(currentUser.id, `Your request for ${request.toolName} has been submitted.`);
-        const hod = get().users.find(u => u.role === 'hod' && u.department === currentUser.department);
-        if (hod) {
-          get().addNotification(hod.id, `New subscription request for ${request.toolName} from ${currentUser.name}.`);
-        }
-      },
-
-      renewSubscription: (subscriptionId, renewalDuration, updatedCost, remarks) => {
-        const currentUser = get().currentUser;
-        if (!currentUser) return;
-
-        const existingSub = get().subscriptions.find(s => s.id === subscriptionId);
-        if(!existingSub) return;
-        
-        // This simulates a renewal request workflow. In a real app, this might create a new request record.
-        // For the prototype, we'll create a new "pending" request based on the old one.
-        const renewalRequest: Subscription = {
-          ...existingSub,
-          id: generateId(),
-          duration: renewalDuration,
-          cost: updatedCost,
-          remarks,
-          status: 'Pending',
-          requestDate: formatISO(new Date()),
-          requestedBy: currentUser.id,
-          // Reset approval/payment info
-          approvedBy: undefined,
-          approvalDate: undefined,
-          paidBy: undefined,
-          paymentDate: undefined,
-        };
-
-        set(state => ({
-          subscriptions: [...state.subscriptions, renewalRequest]
-        }));
-        
-        get().addNotification(currentUser.id, `Your renewal request for ${existingSub.toolName} has been submitted.`);
-        const hod = get().users.find(u => u.role === 'hod' && u.department === currentUser.department);
-        if (hod) {
-          get().addNotification(hod.id, `New renewal request for ${existingSub.toolName} from ${currentUser.name}.`);
-        }
-      },
-      
-      updateSubscriptionStatus: (subscriptionId, status, reason) => {
-        const currentUser = get().currentUser;
-        if (!currentUser) return;
-        
-        set((state) => ({
-          subscriptions: state.subscriptions.map((sub) => {
-            if (sub.id === subscriptionId) {
-              const requester = get().users.find(u => u.id === sub.requestedBy);
-              
-              if (status === 'Approved') {
-                if (requester) get().addNotification(requester.id, `Your request for ${sub.toolName} has been approved.`);
-                const financeUsers = get().users.filter(u => u.role === 'finance');
-                financeUsers.forEach(fu => get().addNotification(fu.id, `Subscription for ${sub.toolName} is approved and waiting for payment.`));
-                return { ...sub, status: 'Approved', approvedBy: currentUser.id, approvalDate: formatISO(new Date()) };
-              }
-              if (status === 'Declined') {
-                 if (requester) get().addNotification(requester.id, `Your request for ${sub.toolName} has been declined. Reason: ${reason}`);
-                return { ...sub, status, remarks: `Declined by HOD: ${reason}` };
-              }
-              return { ...sub, status };
+          const newUser = await registerUser(
+            userData.email,
+            userData.password,
+            {
+              name: userData.name,
+              role: userData.role,
+              department: userData.department,
+              subrole: null,
             }
-            return sub;
-          }),
-        }));
+          );
+
+          set((state) => ({
+            users: [...state.users, newUser],
+            isLoading: false,
+          }));
+        } catch (error: any) {
+          set({ isLoading: false });
+          throw error;
+        }
       },
 
-      markAsPaid: (subscriptionId, payerId) => {
-        set((state) => ({
-          subscriptions: state.subscriptions.map((sub) => {
-            if (sub.id === subscriptionId) {
-               const requester = get().users.find(u => u.id === sub.requestedBy);
-               if(requester) get().addNotification(requester.id, `Payment for ${sub.toolName} has been completed. Your subscription is now active.`);
+      login: async (email, password, role, subrole = null) => {
+        try {
+          set({ isLoading: true });
+          const user = await loginUser(email, password, role, subrole);
 
-              return {
-                ...sub,
-                status: 'Active',
-                paidBy: payerId,
-                paymentDate: formatISO(new Date()),
-                expiryDate: formatISO(add(new Date(), { months: sub.duration })),
-              };
+          if (user) {
+            set({ currentUser: user, isLoading: false });
+            await get().addNotification(
+              user.id,
+              `Welcome back, ${user.name}! You've successfully logged in.`
+            );
+
+            // Load user's subscriptions and notifications
+            await get().loadSubscriptions();
+            await get().loadNotifications(user.id);
+
+            return user;
+          }
+
+          set({ isLoading: false });
+          return null;
+        } catch (error) {
+          set({ isLoading: false });
+          return null;
+        }
+      },
+
+      logout: async () => {
+        try {
+          await logoutUser();
+          set({ currentUser: null, subscriptions: [], notifications: [] });
+        } catch (error) {
+          console.error("Logout error:", error);
+        }
+      },
+
+      loadSubscriptions: async () => {
+        try {
+          const subscriptions = await getAllSubscriptions();
+          set({ subscriptions });
+        } catch (error) {
+          console.error("Error loading subscriptions:", error);
+        }
+      },
+
+      loadNotifications: async (userId: string) => {
+        try {
+          const notifications = await getNotificationsByUser(userId);
+          set({ notifications });
+        } catch (error) {
+          console.error("Error loading notifications:", error);
+        }
+      },
+
+      addSubscriptionRequest: async (request) => {
+        const currentUser = get().currentUser;
+        if (!currentUser) return;
+
+        try {
+          const subscriptionId = await addSubscriptionToFirestore({
+            ...request,
+            requestedBy: currentUser.id,
+          });
+
+          // Reload subscriptions
+          await get().loadSubscriptions();
+
+          // Notify requester and HOD
+          await get().addNotification(
+            currentUser.id,
+            `Your request for ${request.toolName} has been submitted.`
+          );
+
+          const hodUsers = await getUsersByRole("hod");
+          const hod = hodUsers.find(
+            (u: any) => u.department === currentUser.department
+          );
+          if (hod) {
+            await get().addNotification(
+              hod.id,
+              `New subscription request for ${request.toolName} from ${currentUser.name}.`
+            );
+          }
+        } catch (error) {
+          console.error("Error adding subscription request:", error);
+          throw error;
+        }
+      },
+
+      renewSubscription: async (
+        subscriptionId,
+        renewalDuration,
+        updatedCost,
+        remarks
+      ) => {
+        const currentUser = get().currentUser;
+        if (!currentUser) return;
+
+        try {
+          const existingSub = get().subscriptions.find(
+            (s) => s.id === subscriptionId
+          );
+          if (!existingSub) return;
+
+          await renewSubscriptionInFirestore(
+            subscriptionId,
+            renewalDuration,
+            updatedCost,
+            remarks,
+            currentUser.id
+          );
+
+          // Reload subscriptions
+          await get().loadSubscriptions();
+
+          await get().addNotification(
+            currentUser.id,
+            `Your renewal request for ${existingSub.toolName} has been submitted.`
+          );
+
+          const hodUsers = await getUsersByRole("hod");
+          const hod = hodUsers.find(
+            (u: any) => u.department === currentUser.department
+          );
+          if (hod) {
+            await get().addNotification(
+              hod.id,
+              `New renewal request for ${existingSub.toolName} from ${currentUser.name}.`
+            );
+          }
+        } catch (error) {
+          console.error("Error renewing subscription:", error);
+          throw error;
+        }
+      },
+
+      updateSubscriptionStatus: async (subscriptionId, status, approverId) => {
+        const currentUser = get().currentUser;
+        if (!currentUser) return;
+
+        try {
+          // Update in Firestore
+          await updateSubscriptionStatusInFirestore(
+            subscriptionId,
+            status,
+            approverId || currentUser.id
+          );
+
+          // Get subscription details for notifications
+          const sub = get().subscriptions.find((s) => s.id === subscriptionId);
+          if (!sub) return;
+
+          // Reload subscriptions
+          await get().loadSubscriptions();
+
+          // Send notifications
+          if (status === "Approved") {
+            await get().addNotification(
+              sub.requestedBy,
+              `Your request for ${sub.toolName} has been approved.`
+            );
+            const financeUsers = await getUsersByRole("finance");
+            for (const fu of financeUsers) {
+              await get().addNotification(
+                (fu as any).id,
+                `Subscription for ${sub.toolName} is approved and waiting for payment.`
+              );
             }
-            return sub;
-          }),
-        }));
+          } else if (status === "Declined") {
+            await get().addNotification(
+              sub.requestedBy,
+              `Your request for ${sub.toolName} has been declined.`
+            );
+          }
+        } catch (error) {
+          console.error("Error updating subscription status:", error);
+          throw error;
+        }
       },
 
-      addNotification: (userId, message) => {
-        const newNotification: AppNotification = {
-          id: generateId(),
-          userId,
-          message,
-          isRead: false,
-          createdAt: formatISO(new Date()),
-        };
-        set((state) => ({
-          notifications: [newNotification, ...state.notifications],
-        }));
+      markAsPaid: async (subscriptionId, payerId) => {
+        try {
+          // Get subscription details before updating
+          const sub = get().subscriptions.find((s) => s.id === subscriptionId);
+          if (!sub) return;
+
+          // Update in Firestore
+          await markSubscriptionAsPaidInFirestore(subscriptionId, payerId);
+
+          // Reload subscriptions
+          await get().loadSubscriptions();
+
+          // Notify requester
+          await get().addNotification(
+            sub.requestedBy,
+            `Payment for ${sub.toolName} has been completed. Your subscription is now active.`
+          );
+        } catch (error) {
+          console.error("Error marking as paid:", error);
+          throw error;
+        }
       },
 
-      readNotification: (notificationId) => {
-        set((state) => ({
-          notifications: state.notifications.map((n) =>
-            n.id === notificationId ? { ...n, isRead: true } : n
-          ),
-        }));
+      addNotification: async (userId, message) => {
+        try {
+          await addNotificationToFirestore(userId, message);
+
+          // Reload notifications if it's for the current user
+          const currentUser = get().currentUser;
+          if (currentUser && currentUser.id === userId) {
+            await get().loadNotifications(userId);
+          }
+        } catch (error) {
+          console.error("Error adding notification:", error);
+        }
+      },
+
+      readNotification: async (notificationId) => {
+        try {
+          await markNotificationAsRead(notificationId);
+
+          // Update local state
+          set((state) => ({
+            notifications: state.notifications.map((n) =>
+              n.id === notificationId ? { ...n, isRead: true } : n
+            ),
+          }));
+        } catch (error) {
+          console.error("Error marking notification as read:", error);
+        }
       },
     }),
     {
-      name: 'autotrack-pro-storage',
+      name: "autotrack-pro-storage",
       storage: createJSONStorage(() => sessionStorage), // Use sessionStorage for this prototype
     }
   )
