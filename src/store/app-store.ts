@@ -8,8 +8,6 @@ import { add, formatISO } from 'date-fns';
 import { getAuth, signInWithPopup, GoogleAuthProvider, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from 'firebase/auth';
 import { initializeFirebase } from '@/firebase';
 import { collection, doc, setDoc, getDoc, addDoc, updateDoc } from 'firebase/firestore';
-import { errorEmitter } from '@/firebase/error-emitter';
-import { FirestorePermissionError } from '@/firebase/errors';
 
 interface AppState {
   currentUser: User | null;
@@ -33,24 +31,21 @@ export const useAppStore = create<AppState>()(
       setCurrentUser: (user) => set({ currentUser: user }),
       
       register: async (userData) => {
-        // Add robust validation at the start of the function.
-        if (!userData.password || userData.password.length < 6) {
-          throw new Error('Password is required and must be at least 6 characters long.');
-        }
         if (!userData.email) {
             throw new Error('Email is required.');
+        }
+        if (!userData.password || userData.password.length < 6) {
+          throw new Error('Password is required and must be at least 6 characters long.');
         }
 
         const { auth, firestore } = initializeFirebase();
         const normalizedEmail = userData.email.trim().toLowerCase();
 
         try {
-            // 1. Create user in Firebase Auth
             const userCredential = await createUserWithEmailAndPassword(auth, normalizedEmail, userData.password);
             const firebaseUser = userCredential.user;
 
-            // 2. Prepare user document for Firestore, ensuring no undefined values
-            const newUser: User = {
+            const newUser: Omit<User, 'id'> & { id: string } = {
                 id: firebaseUser.uid,
                 name: userData.name,
                 email: normalizedEmail,
@@ -59,17 +54,13 @@ export const useAppStore = create<AppState>()(
                 subrole: userData.role === 'finance' ? (userData.subrole || 'apa') : null,
             };
 
-            // 3. Save user document to Firestore
             const userDocRef = doc(firestore, "users", firebaseUser.uid);
             await setDoc(userDocRef, newUser);
 
-            // 4. Optimistically set current user in the UI
-            set({ currentUser: newUser as User });
+            set({ currentUser: newUser });
 
         } catch (error: any) {
-            // Catch Auth errors (like email-already-in-use) or Firestore errors
             console.error("Registration failed:", error);
-            // Re-throw the original error to be caught by the UI form
             throw error;
         }
       },
