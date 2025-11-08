@@ -13,23 +13,27 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
     
-    // This function is the root cause of the problem and should not be used in this manner.
-    // However, to avoid breaking other potential logic, we will leave it but ensure it's not
-    // used in the rules that are causing the immediate issue.
+    // This function checks for existence before trying to get data, preventing errors on create.
     function getUserData() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+      return exists(/databases/$(database)/documents/users/$(request.auth.uid))
+         ? get(/databases/$(database)/documents/users/$(request.auth.uid)).data
+         : null;
     }
 
     function isRole(role) {
-      return isSignedIn() && getUserData().role == role;
+      // Use this only when you are sure the user document exists.
+      let userData = getUserData();
+      return userData != null && userData.role == role;
     }
 
     function isSubRole(subrole) {
-      return isSignedIn() && getUserData().subrole == subrole;
+      let userData = getUserData();
+      return userData != null && userData.subrole == subrole;
     }
     
     function isDepartment(department) {
-      return isSignedIn() && getUserData().department == department;
+      let userData = getUserData();
+      return userData != null && userData.department == department;
     }
 
     // Users collection
@@ -49,7 +53,8 @@ service cloud.firestore {
     // Subscriptions collection
     match /subscriptions/{subscriptionId} {
       // An employee can create a request.
-      allow create: if isOwner(request.resource.data.requestedBy);
+      // We check the incoming resource data, NOT a get() call.
+      allow create: if isSignedIn() && request.resource.data.requestedBy == request.auth.uid;
 
       // An employee can read their own dept subscriptions, HOD their dept, and finance/admin can read all.
       // The rules are now based on the incoming resource data, not a separate `get()` call.
@@ -61,7 +66,7 @@ service cloud.firestore {
       allow list: if isRole('finance') || isRole('admin');
 
       // Update rules remain complex but rely on the same principle.
-      allow update: if (isRole('hod') && isDepartment(request.resource.data.department) && request.resource.data.status in ['Approved by HOD', 'Declined by HOD']) ||
+      allow update: if (isRole('hod') && isDepartment(resource.data.department) && request.resource.data.status in ['Approved by HOD', 'Declined by HOD']) ||
                       (isRole('finance') && isSubRole('apa') && request.resource.data.status in ['Approved by APA', 'Declined by APA']) ||
                       (isRole('finance') && isSubRole('am') && request.resource.data.status == 'Active');
                       
