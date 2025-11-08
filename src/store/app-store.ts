@@ -29,10 +29,10 @@ export const useAppStore = create<AppState>()(
     (set, get) => ({
       currentUser: null,
       setCurrentUser: (user) => set({ currentUser: user }),
-      
+
       register: async (userData) => {
         if (!userData.email) {
-            throw new Error('Email is required.');
+          throw new Error('Email is required.');
         }
         if (!userData.password || userData.password.length < 6) {
           throw new Error('Password is required and must be at least 6 characters long.');
@@ -42,49 +42,64 @@ export const useAppStore = create<AppState>()(
         const normalizedEmail = userData.email.trim().toLowerCase();
 
         try {
-            const userCredential = await createUserWithEmailAndPassword(auth, normalizedEmail, userData.password);
-            const firebaseUser = userCredential.user;
+          // 1. Create user in Firebase Auth
+          const userCredential = await createUserWithEmailAndPassword(auth, normalizedEmail, userData.password);
+          const firebaseUser = userCredential.user;
 
-            const newUser: Omit<User, 'id'> & { id: string } = {
-                id: firebaseUser.uid,
-                name: userData.name,
-                email: normalizedEmail,
-                role: userData.role,
-                department: userData.department,
-                subrole: userData.role === 'finance' ? (userData.subrole || 'apa') : null,
-            };
+          // 2. Prepare user data for Firestore
+          const newUser: Omit<User, 'id'> & { id: string } = {
+            id: firebaseUser.uid,
+            name: userData.name,
+            email: normalizedEmail,
+            role: userData.role,
+            department: userData.department,
+            subrole: userData.role === 'finance' ? (userData.subrole || 'apa') : null,
+          };
+          
+          // 3. Create document reference
+          const userDocRef = doc(firestore, "users", firebaseUser.uid);
 
-            const userDocRef = doc(firestore, "users", firebaseUser.uid);
-            await setDoc(userDocRef, newUser);
+          // 4. Log everything before writing to Firestore
+          console.log("--- Firestore Write Debug ---");
+          console.log("Firebase Auth User:", firebaseUser);
+          console.log("Data to be written:", newUser);
+          console.log("Firestore Document Path:", userDocRef.path);
+          debugger; // Execution will pause here if dev tools are open
 
-            set({ currentUser: newUser });
+          // 5. Write to Firestore
+          await setDoc(userDocRef, newUser);
+
+          console.log("User profile successfully written to Firestore.");
+
+          set({ currentUser: newUser });
 
         } catch (error: any) {
-            console.error("Registration failed:", error);
-            throw error;
+          console.error("Full registration error:", error);
+          throw new Error(`Registration failed: ${error.message}`);
         }
       },
 
       login: async (email, password, role, subrole = null) => {
         const { auth, firestore } = initializeFirebase();
         const normalizedEmail = email.trim().toLowerCase();
-        
+
         const userCredential = await signInWithEmailAndPassword(auth, normalizedEmail, password);
         const firebaseUser = userCredential.user;
+        console.log('UID :', firebaseUser.uid);
 
         const userDoc = await getDoc(doc(firestore, "users", firebaseUser.uid));
         if (!userDoc.exists()) {
-            await signOut(auth);
-            throw new Error("User profile not found in database.");
+          await signOut(auth);
+          throw new Error("User profile not found in database.");
         }
 
         const appUser = userDoc.data() as User;
 
         if (appUser.role !== role || (role === 'finance' && appUser.subrole !== subrole)) {
-            await signOut(auth);
-            throw new Error("Access Denied: Your account role does not match this portal.");
+          await signOut(auth);
+          throw new Error("Access Denied: Your account role does not match this portal.");
         }
-        
+
         set({ currentUser: appUser });
         get().addNotification(appUser.id, `Welcome back, ${appUser.name}!`);
         return appUser;
@@ -95,66 +110,66 @@ export const useAppStore = create<AppState>()(
         const provider = new GoogleAuthProvider();
 
         try {
-            const result = await signInWithPopup(auth, provider);
-            const googleUser = result.user;
+          const result = await signInWithPopup(auth, provider);
+          const googleUser = result.user;
 
-            if (!googleUser.email) {
-                throw new Error("Could not retrieve email from Google account.");
-            }
-            
-            const userDocRef = doc(firestore, "users", googleUser.uid);
-            const userDoc = await getDoc(userDocRef);
+          if (!googleUser.email) {
+            throw new Error("Could not retrieve email from Google account.");
+          }
 
-            if (!userDoc.exists()) {
-                const newUser: User = {
-                    id: googleUser.uid,
-                    name: googleUser.displayName || 'New User',
-                    email: googleUser.email,
-                    role: role,
-                    subrole: subrole,
-                    department: 'Unassigned',
-                    googleUid: googleUser.uid,
-                };
-                await setDoc(userDocRef, newUser);
-                set({ currentUser: newUser });
-                get().addNotification(newUser.id, `Welcome, ${newUser.name}! Your account has been created.`);
-                return newUser;
-            }
+          const userDocRef = doc(firestore, "users", googleUser.uid);
+          const userDoc = await getDoc(userDocRef);
 
-            const appUser = userDoc.data() as User;
-            const isRoleMatch = appUser.role === role;
-            const isSubRoleMatch = role !== 'finance' || appUser.subrole === subrole;
+          if (!userDoc.exists()) {
+            const newUser: User = {
+              id: googleUser.uid,
+              name: googleUser.displayName || 'New User',
+              email: googleUser.email,
+              role: role,
+              subrole: subrole,
+              department: 'Unassigned',
+              googleUid: googleUser.uid,
+            };
+            await setDoc(userDocRef, newUser);
+            set({ currentUser: newUser });
+            get().addNotification(newUser.id, `Welcome, ${newUser.name}! Your account has been created.`);
+            return newUser;
+          }
 
-            if (isRoleMatch && isSubRoleMatch) {
-                set({ currentUser: appUser });
-                get().addNotification(appUser.id, `Welcome back, ${appUser.name}!`);
-                return appUser;
-            } else {
-                 await signOut(auth);
-                 throw new Error("Access Denied: Your Google account does not match this portal's role.");
-            }
+          const appUser = userDoc.data() as User;
+          const isRoleMatch = appUser.role === role;
+          const isSubRoleMatch = role !== 'finance' || appUser.subrole === subrole;
+
+          if (isRoleMatch && isSubRoleMatch) {
+            set({ currentUser: appUser });
+            get().addNotification(appUser.id, `Welcome back, ${appUser.name}!`);
+            return appUser;
+          } else {
+            await signOut(auth);
+            throw new Error("Access Denied: Your Google account does not match this portal's role.");
+          }
         } catch (error: any) {
-            if (error.code === 'auth/popup-closed-by-user') {
-                 throw new Error("Login cancelled. Please try again.");
-            }
-            throw error;
+          if (error.code === 'auth/popup-closed-by-user') {
+            throw new Error("Login cancelled. Please try again.");
+          }
+          throw error;
         }
       },
 
       logout: async () => {
         const { auth } = initializeFirebase();
         try {
-            await signOut(auth);
+          await signOut(auth);
         } catch (error) {
-            console.error("Error signing out: ", error);
+          console.error("Error signing out: ", error);
         }
         set({ currentUser: null });
       },
-      
+
       addSubscriptionRequest: async (request) => {
         const currentUser = get().currentUser;
         if (!currentUser) return;
-        
+
         const { firestore } = initializeFirebase();
 
         const newSubscription: Omit<Subscription, 'id'> = {
@@ -169,7 +184,7 @@ export const useAppStore = create<AppState>()(
 
 
         get().addNotification(currentUser.id, `Your request for ${request.toolName} has been submitted.`);
-        
+
         // This part needs to query users, which is complex for a store.
         // Let's assume a notification is created. A backend function would be better here.
       },
@@ -182,9 +197,9 @@ export const useAppStore = create<AppState>()(
         const subsCollection = collection(firestore, 'subscriptions');
         const originalSubDoc = await getDoc(doc(subsCollection, subscriptionId));
 
-        if(!originalSubDoc.exists()) return;
+        if (!originalSubDoc.exists()) return;
         const existingSub = originalSubDoc.data();
-        
+
         const renewalRequest: Omit<Subscription, 'id'> = {
           ...existingSub,
           duration: renewalDuration,
@@ -202,31 +217,31 @@ export const useAppStore = create<AppState>()(
 
         const docRef = await addDoc(subsCollection, renewalRequest);
         await updateDoc(docRef, { id: docRef.id });
-        
+
         get().addNotification(currentUser.id, `Your renewal request for ${existingSub.toolName} has been submitted.`);
       },
-      
+
       updateSubscriptionStatus: async (subscriptionId, status, approverId, reason) => {
         const { firestore } = initializeFirebase();
         const subDocRef = doc(firestore, 'subscriptions', subscriptionId);
-        
+
         const updateData: Partial<Subscription> = {
-            status,
-            approvedBy: approverId,
-            approvalDate: formatISO(new Date()),
+          status,
+          approvedBy: approverId,
+          approvalDate: formatISO(new Date()),
         };
         if (status === 'Declined by HOD' && reason) {
-            updateData.remarks = `Declined by HOD: ${reason}`;
+          updateData.remarks = `Declined by HOD: ${reason}`;
         }
-        
+
         await updateDoc(subDocRef, updateData);
         const subDoc = await getDoc(subDocRef);
         const sub = subDoc.data() as Subscription;
 
         if (status === 'Approved by HOD') {
-            get().addNotification(sub.requestedBy, `Your request for ${sub.toolName} has been approved by the HOD.`);
+          get().addNotification(sub.requestedBy, `Your request for ${sub.toolName} has been approved by the HOD.`);
         } else if (status === 'Declined by HOD') {
-            get().addNotification(sub.requestedBy, `Your request for ${sub.toolName} has been declined by HOD. Reason: ${reason}`);
+          get().addNotification(sub.requestedBy, `Your request for ${sub.toolName} has been declined by HOD. Reason: ${reason}`);
         }
       },
 
@@ -235,12 +250,12 @@ export const useAppStore = create<AppState>()(
         const subDocRef = doc(firestore, 'subscriptions', subscriptionId);
 
         const updateData: Partial<Subscription> = {
-            status,
-            apaApprovedBy: approverId,
-            apaApprovalDate: formatISO(new Date()),
+          status,
+          apaApprovedBy: approverId,
+          apaApprovalDate: formatISO(new Date()),
         };
         if (status === 'Declined by APA' && reason) {
-            updateData.remarks = `Declined by APA: ${reason}`;
+          updateData.remarks = `Declined by APA: ${reason}`;
         }
 
         await updateDoc(subDocRef, updateData);
@@ -248,9 +263,9 @@ export const useAppStore = create<AppState>()(
         const sub = subDoc.data() as Subscription;
 
         if (status === 'Approved by APA') {
-            get().addNotification(sub.requestedBy, `Your request for ${sub.toolName} has been approved by Finance.`);
+          get().addNotification(sub.requestedBy, `Your request for ${sub.toolName} has been approved by Finance.`);
         } else if (status === 'Declined by APA') {
-            get().addNotification(sub.requestedBy, `Your request for ${sub.toolName} has been declined by Finance. Reason: ${reason}`);
+          get().addNotification(sub.requestedBy, `Your request for ${sub.toolName} has been declined by Finance. Reason: ${reason}`);
         }
       },
 
@@ -261,19 +276,19 @@ export const useAppStore = create<AppState>()(
         const sub = subDoc.data() as Subscription;
 
         const updateData: Partial<Subscription> = {
-            status: 'Active',
-            paidBy: payerId,
-            paymentDate: paymentDetails.date,
-            expiryDate: formatISO(add(new Date(paymentDetails.date), { months: sub.duration })),
-            paymentDetails: {
-                mode: paymentDetails.mode,
-                transactionId: paymentDetails.transactionId,
-            },
-            remarks: `Paid via ${paymentDetails.mode}`
+          status: 'Active',
+          paidBy: payerId,
+          paymentDate: paymentDetails.date,
+          expiryDate: formatISO(add(new Date(paymentDetails.date), { months: sub.duration })),
+          paymentDetails: {
+            mode: paymentDetails.mode,
+            transactionId: paymentDetails.transactionId,
+          },
+          remarks: `Paid via ${paymentDetails.mode}`
         };
 
         await updateDoc(subDocRef, updateData);
-        
+
         get().addNotification(sub.requestedBy, `Payment for ${sub.toolName} has been completed. Your subscription is now active.`);
       },
 
@@ -286,7 +301,7 @@ export const useAppStore = create<AppState>()(
           createdAt: formatISO(new Date()),
         };
         const docRef = await addDoc(collection(firestore, 'notifications'), newNotification);
-        await updateDoc(docRef, {id: docRef.id});
+        await updateDoc(docRef, { id: docRef.id });
       },
 
     }),
@@ -297,3 +312,5 @@ export const useAppStore = create<AppState>()(
     }
   )
 );
+
+    
