@@ -8,7 +8,6 @@ import { add, formatISO } from 'date-fns';
 import { getAuth, signInWithPopup, GoogleAuthProvider, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from 'firebase/auth';
 import { initializeFirebase, errorEmitter, FirestorePermissionError } from '@/firebase';
 import { collection, doc, setDoc, getDoc, addDoc, updateDoc } from 'firebase/firestore';
-import { toast } from '@/hooks/use-toast';
 
 interface AppState {
   currentUser: User | null;
@@ -43,11 +42,9 @@ export const useAppStore = create<AppState>()(
         }
       
         try {
-          // 1. Create user in Firebase Auth
           const userCredential = await createUserWithEmailAndPassword(auth, normalizedEmail, userData.password);
           const firebaseUser = userCredential.user;
       
-          // 2. Prepare user data for Firestore
           const newUser: Omit<User, 'password'> = {
             id: firebaseUser.uid,
             name: userData.name,
@@ -57,18 +54,12 @@ export const useAppStore = create<AppState>()(
             subrole: userData.role === 'finance' && (userData.subrole === 'apa' || userData.subrole === 'am') ? userData.subrole : null,
           };
       
-          // 3. Save user data to Firestore
           const userDocRef = doc(firestore, "users", firebaseUser.uid);
       
           try {
             await setDoc(userDocRef, newUser);
-            set({ currentUser: newUser as User });
-            toast({
-              title: "Registration Successful!",
-              description: `Welcome, ${newUser.name}! You can now log in.`,
-            });
+            // We don't set the user here, login flow will handle it.
           } catch (firestoreError: any) {
-            // Throw a new, detailed error for the UI to catch
             throw new FirestorePermissionError({
               path: userDocRef.path,
               operation: 'create',
@@ -77,15 +68,12 @@ export const useAppStore = create<AppState>()(
           }
       
         } catch (error: any) {
-          // Catch errors from both createUserWithEmailAndPassword and FirestorePermissionError
           if (error instanceof FirestorePermissionError) {
-            // Re-throw the custom error to be caught by the UI
             throw error;
           }
           if (error.code === 'auth/email-already-in-use') {
             throw new Error('This email address is already registered. Please use a different email or log in.');
           }
-          // For other auth errors, throw a generic message
           throw new Error(`Registration failed: ${error.message}`);
         }
       },
