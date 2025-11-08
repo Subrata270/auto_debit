@@ -53,10 +53,11 @@ function HomePageContent() {
         description: "Sample user created and 'users' collection should now exist.",
       });
     } catch (error: any) {
+      console.error("Detailed error from handleCreateSampleUser:", error);
       toast({
         variant: "destructive",
         title: "Error Creating Sample User",
-        description: error.message,
+        description: `Failed to create sample user. Check the browser console for details. Message: ${error.message}`,
       });
     }
   };
