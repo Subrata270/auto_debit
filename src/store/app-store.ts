@@ -40,7 +40,7 @@ export const useAppStore = create<AppState>()(
           const userCredential = await createUserWithEmailAndPassword(auth, normalizedEmail, userData.password!);
           const firebaseUser = userCredential.user;
 
-          const newUser: Omit<User, 'password' | 'googleUid'> = {
+          const newUser: Omit<User, 'password' | 'googleUid'> & { googleUid?: string } = {
             id: firebaseUser.uid,
             name: userData.name,
             email: normalizedEmail,
@@ -303,5 +303,3 @@ export const useAppStore = create<AppState>()(
     }
   )
 );
-
-    
