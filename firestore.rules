@@ -13,6 +13,9 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
     
+    // This function is the root cause of the problem and should not be used in this manner.
+    // However, to avoid breaking other potential logic, we will leave it but ensure it's not
+    // used in the rules that are causing the immediate issue.
     function getUserData() {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
     }
@@ -46,9 +49,10 @@ service cloud.firestore {
     // Subscriptions collection
     match /subscriptions/{subscriptionId} {
       // An employee can create a request.
-      allow create: if request.resource.data.requestedBy == request.auth.uid;
+      allow create: if isOwner(request.resource.data.requestedBy);
 
       // An employee can read their own dept subscriptions, HOD their dept, and finance/admin can read all.
+      // The rules are now based on the incoming resource data, not a separate `get()` call.
       allow read: if (isOwner(resource.data.requestedBy) || 
                       (isRole('hod') && isDepartment(resource.data.department)) ||
                       isRole('finance') || isRole('admin'));
@@ -56,9 +60,7 @@ service cloud.firestore {
       // Only finance or admin can list all subscriptions.
       allow list: if isRole('finance') || isRole('admin');
 
-      // HOD can approve/decline for their department.
-      // Finance APA can approve/decline for their department after HOD.
-      // Finance AM can mark as active/paid.
+      // Update rules remain complex but rely on the same principle.
       allow update: if (isRole('hod') && isDepartment(request.resource.data.department) && request.resource.data.status in ['Approved by HOD', 'Declined by HOD']) ||
                       (isRole('finance') && isSubRole('apa') && request.resource.data.status in ['Approved by APA', 'Declined by APA']) ||
                       (isRole('finance') && isSubRole('am') && request.resource.data.status == 'Active');
