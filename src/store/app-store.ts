@@ -46,11 +46,16 @@ export const useAppStore = create<AppState>()(
           subrole: userData.role === 'finance' ? (userData.subrole || null) : null,
         };
 
-        if (firebaseUser.providerData.some(p => p.providerId === 'google.com')) {
-            newUser.googleUid = firebaseUser.uid;
-        }
+        const userForFirestore: any = { ...newUser };
+        // Ensure no undefined fields are sent to Firestore
+        Object.keys(userForFirestore).forEach(key => {
+            if (userForFirestore[key] === undefined) {
+                delete userForFirestore[key];
+            }
+        });
 
-        await setDoc(doc(firestore, "users", firebaseUser.uid), newUser);
+
+        await setDoc(doc(firestore, "users", firebaseUser.uid), userForFirestore);
 
         set({ currentUser: newUser as User });
       },
@@ -286,5 +291,3 @@ export const useAppStore = create<AppState>()(
     }
   )
 );
-
-    
